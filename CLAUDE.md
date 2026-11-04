@@ -2,14 +2,15 @@
 
 > **AI wrote your RLS. Red Row proves whether it leaks.**
 
-Red Row is an open-source CLI (clone the repo, then `npm run scan`) that **attacks a Supabase project's Row Level Security** with simulated users and reports, with real row counts, who can read or write what. Every attack runs inside a transaction that is always rolled back, so it is safe to run on any project.
+Red Row is an open-source CLI (clone the repo, then `npm run scan`) that **attacks a Supabase project's Row Level Security** with simulated users and reports, with real row counts, who can read or write what. Every attack runs inside a transaction that is always rolled back. Sequence values and outside effects from triggers are the documented exceptions, so point it at a staging project or a branch where you can.
 
 Built for the **Supabase × Sodabase × BuilderBase NYC Hackathon (Wed Nov 4, 2026)**. Read `docs/` before building anything:
 
 - `docs/ENGINE.md` — exact introspection SQL, attack algorithm, rule IDs, scoring. **Source of truth for the engine.**
 - `docs/SCHEMAS.md` — HQ (dashboard) schema + the deliberately leaky demo target ("CareNote").
 - `docs/PITCH.md` — the problem, research backing, judging criteria, demo script.
-- `HANDOVER.md` — the build is split into small handovers; do only the one you are given.
+- `docs/DEMO.md` — the 3-minute demo, step by step.
+- `docs/history/HANDOVER.md` — build log, superseded by README.
 
 ---
 
@@ -22,7 +23,7 @@ AI app builders generate Supabase schemas and RLS policies that compile, pass li
 1. **Data quality** — Sodabase scores our HQ tables (freshness + row count). HQ tables are insert-only with `created_at`, written continuously by a `pg_cron` sweep. Never update/delete rows in HQ.
 2. **Built to scale** — judges read our schema, indexes, RLS and edge functions. HQ must score **100 when Red Row scans itself.**
 3. **Execution** — the live demo works end to end: scan → leaks → fix → rescan = 100.
-4. **Craft** — polished, original, clear problem. One-line install, beautiful report, great README.
+4. **Craft** — polished, original, clear problem. Clone and run, beautiful report, great README.
 
 Event constraints: building 4:30–7:00 PM, **Sodabase must be connected by 5:30 PM**, submit public repo + live URL/video + Sodabase score by 7:00 PM.
 
@@ -32,7 +33,7 @@ Event constraints: building 4:30–7:00 PM, **Sodabase must be connected by 5:30
 
 ```
 redrow/
-├─ CLAUDE.md, HANDOVER.md, README.md, LICENSE (MIT), .env.example
+├─ CLAUDE.md, README.md, LICENSE (MIT), .env.example
 ├─ docs/                      specs (read-only reference)
 ├─ packages/
 │  ├─ engine/                 pure TypeScript: introspect → static rules → probes → score
@@ -89,6 +90,6 @@ Two separate Supabase cloud projects (free tier allows 2):
 
 - `npm run scan -- --db $DEMO_DB_URL` prints a red report in < 10 s (the demo host is in `allowHosts`, or pass `-y`); `--html` writes a self-contained report.
 - `npm run fix -- --from report.json` writes a migration; after applying it, rescan = 100 (or near).
-- HQ scanning itself = 100. pg_cron sweep writes a scan every minute. Sodabase connected.
+- HQ scanning itself = 100. pg_cron sweep writes a scan about every minute. Sodabase connected.
 - Dashboard live on Vercel: score dial, leak matrix, score-over-time, findings with copyable fix SQL.
-- README with GIF, install line, safety explanation, MIT license. Repo public.
+- README with screenshots, clone-and-run quickstart, safety explanation, MIT license. Repo public.

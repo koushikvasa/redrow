@@ -11,7 +11,7 @@ Two separate Supabase projects. HQ must be **clean** (scores 100 on Red Row, sco
 - Constraints everywhere: `not null`, `check`, FKs with explicit `on delete`, unique where natural.
 - An index on **every FK column** and every column used in an RLS policy, plus `(…, created_at desc)` composite indexes for the dashboard's "latest first" queries.
 - RLS **enabled and forced** on every table. Policies use `(select auth.uid())`. No `using (true)`.
-- Writes from the outside world only go through edge functions using the service role. The browser gets read-only access.
+- Writes to the scan tables only go through edge functions, over a server-side database connection. The browser gets read-only access.
 - Seed about **14 days of backdated history** so Sodabase freshness can reconstruct normal immediately.
 
 ### Migration `hq/supabase/migrations/0001_init.sql`
@@ -110,7 +110,7 @@ create policy findings_read on public.findings for select to anon, authenticated
 create policy probe_results_read on public.probe_results for select to anon, authenticated
   using (exists (select 1 from public.projects p where p.id = project_id
                  and (p.is_public or p.owner_id = (select auth.uid()))));
--- No insert/update/delete policies on scan tables: only the service role (edge functions) writes.
+-- No insert/update/delete policies on scan tables: only the edge functions write.
 
 -- Least privilege grants
 revoke all on public.projects, public.scan_runs, public.findings, public.probe_results from anon, authenticated;

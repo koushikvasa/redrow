@@ -1,3 +1,5 @@
+> Build log, superseded by README.
+
 # Handovers — paste ONE at a time into Claude Code
 
 Each handover is small and ends in something runnable. Do not start the next one until the current one's "Done when" is true. Commit after each.

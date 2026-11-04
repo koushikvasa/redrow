@@ -4,15 +4,46 @@
 
 **[See it live → redrow.vercel.app](https://redrow.vercel.app)**
 
-Supabase's Security Advisor checks whether Row Level Security is *on*. Red Row checks whether it *works*: it attacks your database as real users, and reports what got through, with row counts.
+Supabase's Security Advisor reads your configuration. Red Row checks whether Row Level Security *works*: it attacks your database as real users, and reports what got through, with row counts.
 
 | Leaking now | See it fixed |
 |---|---|
-| ![CareNote leaking: any logged-in doctor can read 80 of other doctors' patients and delete 240 of their notes. Score 0/F.](docs/img/carenote-leaking.png) | ![The same attacks with the fix applied: every attack blocked. Score 100/A.](docs/img/carenote-fixed.png) |
+| ![CareNote leaking: any logged-in doctor can read 80 of other doctors' patients and delete 240 of their notes. Score 0/F, beside the Red Row vs Supabase Advisor panel.](docs/img/carenote-leaking.png) | ![The same attacks with the fix applied: every attack blocked. Score 100/A.](docs/img/carenote-fixed.png) |
 
-## Red Row vs Supabase's Advisor
+## For judges
 
-Supabase's Advisor reads policy text. Red Row logs in and tries.
+Each claim links to the file that backs it. Measurements are from Nov 4, 2026.
+
+### Data quality
+
+- **Watched by Sodabase:** `scan_runs`, `findings` and `probe_results` on `redrow-hq`, each with freshness and new-row monitors.
+- **Insert-only:** `anon` and `authenticated` get `SELECT` on the scan tables, and there are no update or delete policies ([grants](hq/supabase/migrations/0001_init.sql#L96-L101)). The one exception is that a signed-in user can add their own row to `projects`, and email signups are off.
+- **Constrained:** [`0001_init.sql`](hq/supabase/migrations/0001_init.sql) has foreign keys, `NOT NULL`, and checks on scores, grades, counts, severities, rule ids, actors, actions and outcomes.
+- **Continuous:** a [`pg_cron` sweep](hq/supabase/migrations/0006_sweep_retries.sql) stored 488 real scans from 13:41 to 19:20 UTC. The median gap was 60s for CareNote and 80s for HQ.
+- **Labeled history:** 14 days of backfilled scans are marked `source = 'seed'` by [the seed script](hq/scripts/seed-history.mjs), and the dashboard draws them dashed.
+- **Open Sodabase issues:** each watched table has one open new-rows issue, which makes its verdict `untrusted` for now. Freshness passes, and its content scan found no serious issues. The rows are real: the live sweep wrote 560 `scan_runs` rows on Nov 4, against 192 a day in the seeded history. [`demo:capture-fixed`](demo-target/scripts/capture-fixed-reference.mjs) also pauses the sweep briefly, but around its 17:58 UTC capture no CareNote gap passed 100 seconds, so that isn't the cause.
+
+### Built to scale
+
+- **Indexes:** every foreign key and policy column is indexed ([`findings`](hq/supabase/migrations/0001_init.sql#L52-L54), [`probe_results`](hq/supabase/migrations/0001_init.sql#L68-L69)).
+- **RLS:** [enabled and forced](hq/supabase/migrations/0001_init.sql#L72-L79) on all four tables, with [`(select auth.uid())`](hq/supabase/migrations/0001_init.sql#L82-L95) in every policy that checks the user.
+- **Writes:** no API role can write the scan tables. The edge functions [`ingest`](hq/supabase/functions/ingest/index.ts) and [`sweep`](hq/supabase/functions/sweep/index.ts) insert each scan [in one transaction](hq/supabase/functions/_shared/store.ts), over a server-side database connection. `ingest` needs a key and [validates every report](hq/supabase/functions/_shared/report-schema.ts).
+- **Scheduling:** `pg_cron` calls `sweep` through `pg_net`, with its token [read from Vault](hq/supabase/migrations/0006_sweep_retries.sql). It asks every 20 seconds because `pg_net` requests often stall, and `sweep` skips a database scanned in the last 50 seconds.
+- **Realtime:** [`scan_runs` and `findings` are published](hq/supabase/migrations/0001_init.sql#L103-L104), and [the dashboard subscribes](apps/web/components/live.tsx).
+- **Self-scan:** Red Row scans its own backend about every minute (median 80s). All 212 real scans from 13:41 to 19:20 UTC scored 100/A, with `projects` [declared public](hq/redrow.config.json) because it backs the public board.
+
+### Execution
+
+- **Live:** https://redrow.vercel.app is public, needs no login, and updates itself when a sweep lands.
+- **End to end on real Supabase:** `scan` 0/F → `fix --apply -y` → 100/A. The exact steps are in [`docs/DEMO.md`](docs/DEMO.md). "See it fixed" shows [a stored real scan](apps/web/data/fixed-reference.json) of this database with [the reference fix](demo-target/supabase/fixed.sql) applied: 100/A, 45 attacks.
+- **Tests:** 994 pass: engine 512, CLI 399, HQ 15, web 68. That run includes the real-database tests, which skip when `REDROW_TEST_DB_URL` isn't set.
+- **Rollback safety:** [`rollback.test.ts`](packages/engine/test/rollback.test.ts) makes a probe really write, then checks that nothing persisted, including after a probe throws or the server rejects a statement. It also checks that a full scan changes nothing and that read-only mode sends no write.
+
+### Craft
+
+**The problem:** in [an audit of 200 vibe-coded apps](https://arxiv.org/abs/2606.23130), 91% had at least one vulnerability, and 65.77% of the vulnerabilities were Critical or High, concentrated in broken access control, injection and authentication failures. [More below](#why-this-exists).
+
+**Supabase's Advisor reads policy text. Red Row logs in and tries.**
 
 | Leak on the CareNote demo | Supabase Advisor | Red Row |
 |---|---|---|
@@ -27,6 +58,11 @@ Supabase's Advisor reads policy text. Red Row logs in and tries.
 
 Advisor run on Nov 4, 2026. Red Row doesn't check `search_path` or auth settings, so use both tools.
 
+**Why this needs an attack, not a read:**
+
+- [Supabase's RLS docs](https://supabase.com/docs/guides/database/postgres/row-level-security): "Until the suite passes, you don't know whether the policies do what you intended." Red Row runs the attack side of that check without you writing the tests.
+- [Sodabase's docs](https://sodabase.io/docs/database-access): its monitoring role "is created `bypassrls`, so on those tables it reads every row." So it can't see access leaks. Sodabase checks that the data is healthy, Red Row checks who can reach it, and the two are complementary.
+
 ## Quickstart
 
 Needs Node 20+. Use the **Session pooler** connection string from Supabase → Connect (port 5432).
@@ -37,7 +73,7 @@ npm install
 npm run scan -- --db "<session pooler url>" -y
 ```
 
-`-y` confirms you mean this database. Red Row refuses a remote database otherwise, unless it's listed in `allowHosts` in `redrow.config.json`. No API key needed.
+`-y` confirms you mean this database. Red Row refuses a remote database otherwise, unless it's listed in `allowHosts` in `redrow.config.json` or its name contains test, demo or staging. No API key needed.
 
 Red Row isn't on npm, so run it from a clone.
 
@@ -53,7 +89,7 @@ Red Row isn't on npm, so run it from a clone.
 - **Counts only.** It records row counts, owner ids and catalog metadata. It never reads or prints your row contents.
 - **Your data stays home.** Claude only sees schema text, policy text and finding metadata, and only if you set an API key.
 - **Opt out of writes.** `--read-only` skips every write attempt.
-- **Asks before production.** Remote databases need `-y` or an `allowHosts` entry.
+- **Asks before production.** Remote databases need `-y` or an `allowHosts` entry, unless the database name contains test, demo or staging. Use a staging project or a branch where you can.
 
 > **What a rollback can't undo:** sequence values, and outside effects from triggers and extensions such as `dblink` or `http`. If a trigger on your table calls out to another system, use `--read-only`.
 
@@ -124,7 +160,7 @@ Exit codes: `0` nothing at or above `--severity`, `1` findings, `2` couldn't run
               ▲                        ▲
               │                        │
         packages/cli            hq sweep function
-   terminal, JSON, HTML, fix    pg_cron, every minute
+   terminal, JSON, HTML, fix    pg_cron, about every minute
               │                        │
               │ --upload               │ counts only
               ▼                        ▼
@@ -180,6 +216,8 @@ npx vercel --prod                           # deploys from apps/web
 
 - [`docs/ENGINE.md`](docs/ENGINE.md): rules, probes and scoring
 - [`docs/SCHEMAS.md`](docs/SCHEMAS.md): the HQ schema and the deliberately leaky CareNote demo
+- [`docs/DEMO.md`](docs/DEMO.md): the 3-minute demo, step by step
+- [`docs/PITCH.md`](docs/PITCH.md): the pitch, sources and likely questions
 
 ## License
 
