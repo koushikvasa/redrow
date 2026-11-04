@@ -231,7 +231,7 @@ export function renderHtmlReport(report: Report): string {
 ${renderMatrix(report)}
 <h2><span>Findings</span></h2>
 ${renderFindings(report)}
-<footer><span><strong>Nothing persists, and we only ever record counts.</strong> Every probe ran in a transaction that was rolled back.</span><span>Red Row</span></footer>
+<footer><span><strong>Every attack is rolled back, and we only ever record counts.</strong></span><span>Red Row</span></footer>
 <script>${REPORT_JS}</script>
 </body></html>
 `

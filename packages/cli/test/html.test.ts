@@ -52,7 +52,7 @@ describe('renderHtmlReport', () => {
   })
 
   it('carries the safety footer', () => {
-    expect(html).toContain('Nothing persists, and we only ever record counts')
+    expect(html).toContain('Every attack is rolled back, and we only ever record counts')
   })
 
   it('shows inconclusive probes as a caveat', () => {
