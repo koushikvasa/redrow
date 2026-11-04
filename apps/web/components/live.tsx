@@ -45,8 +45,8 @@ export function LiveRefresh({ projectId }: { readonly projectId?: string }) {
   }, [connected, router])
 
   return (
-    <span className="flex items-center gap-2 text-sm text-dim">
-      <i className={`inline-block size-2 rounded-full ${connected ? 'live-dot bg-ok' : 'bg-faint'}`} />
+    <span className="flex items-center gap-2 font-mono text-sm text-dim">
+      <i className={`live-dot ${connected ? 'live-dot-on' : ''}`} />
       {connected ? 'live' : 'connecting'}
     </span>
   )
@@ -60,10 +60,10 @@ export function ScannedAgo({ at }: { readonly at: string }) {
     const tick = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(tick)
   }, [])
-  if (now === null) return <span className="text-sm text-dim">last scanned …</span>
+  if (now === null) return <span className="font-mono text-sm text-dim">last scanned …</span>
   const elapsed = now - Date.parse(at)
   return (
-    <span className={`text-sm tabular-nums ${elapsed > STALE_MS ? 'text-amber' : 'text-dim'}`}>
+    <span className={`font-mono text-sm tabular-nums ${elapsed > STALE_MS ? 'font-bold text-ink' : 'text-dim'}`}>
       last scanned {agoText(elapsed)}
     </span>
   )

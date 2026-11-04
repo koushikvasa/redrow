@@ -19,7 +19,7 @@ export function CopyButton({ text, label = 'Copy' }: { readonly text: string; re
     <button
       type="button"
       onClick={copy}
-      className="shrink-0 cursor-pointer border border-faint px-3 py-2 text-sm text-dim hover:border-ink hover:text-ink focus-visible:border-ink focus-visible:text-ink"
+      className="shrink-0 cursor-pointer border border-line-strong px-3 py-2 font-mono text-sm text-dim transition-colors hover:border-ink hover:text-ink focus-visible:border-ink focus-visible:text-ink"
     >
       {status}
     </button>

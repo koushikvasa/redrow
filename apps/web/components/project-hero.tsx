@@ -22,12 +22,12 @@ type Props = {
 
 /** Numbers stand out in red in a leaking headline, because the numbers are the point. */
 function Headline({ text, isClean }: { readonly text: string; readonly isClean: boolean }) {
-  if (isClean) return <h1 className="mt-1 text-3xl font-bold leading-tight text-ok sm:text-4xl xl:text-[2.6rem]">{text}</h1>
+  if (isClean) return <h1 className="mt-1 font-display text-[2.5rem] leading-[1.05] sm:text-6xl 2xl:text-7xl">{text}</h1>
   return (
-    <h1 className="mt-1 text-2xl font-bold leading-snug sm:text-3xl xl:text-[2.3rem] xl:leading-[1.2]">
+    <h1 className="mt-1 font-display text-[1.75rem] leading-[1.14] sm:text-[2.25rem] 2xl:text-[2.75rem]">
       {text.split(/(\d+)/).map((part, index) =>
         /^\d+$/.test(part) ? (
-          <em key={index} className="font-bold not-italic text-leak">
+          <em key={index} className="not-italic text-leak">
             {part}
           </em>
         ) : (
@@ -39,19 +39,19 @@ function Headline({ text, isClean }: { readonly text: string; readonly isClean: 
 }
 
 export function ProjectHero({ projectName, host, score, grade, headline, subline, totals, lines, blocked, replayKey, replayTitle, aside }: Props) {
-  const storyLayout = aside ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] xl:items-start xl:gap-8' : ''
+  const storyLayout = aside ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] xl:items-start xl:gap-8 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]' : ''
   return (
-    <section className="grid items-center gap-4 pt-2 lg:grid-cols-[380px_1fr] lg:gap-12">
-      <div className="flex justify-center">
-        <ScoreDial score={score} grade={grade} size="lg" />
+    <section className="grid items-start gap-4 pt-2 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 2xl:grid-cols-[360px_minmax(0,1fr)] 2xl:gap-12">
+      <div className="flex justify-center lg:sticky lg:top-6">
+        <ScoreDial score={score} grade={grade} size="lg" hasOpenDoors={totals.critical > 0 || lines.length > 0} />
       </div>
       <div className={`min-w-0 ${storyLayout}`}>
         <div className="min-w-0">
-          <p className="w-fit text-sm text-dim" title={host}>
+          <p className="eyebrow w-fit" title={host}>
             {projectName}
           </p>
           <Headline text={headline} isClean={score >= 90} />
-          <p className="mt-2 mb-4 text-sm text-dim">{subline}</p>
+          <p className="mt-3 mb-4 font-mono text-sm text-dim">{subline}</p>
           <AttackReplay lines={lines} blocked={blocked} replayKey={replayKey} title={replayTitle} />
           <div className="mt-3">
             <SeverityCounts run={totals} compact />

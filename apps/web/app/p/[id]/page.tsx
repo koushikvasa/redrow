@@ -40,8 +40,8 @@ function Charts({ view }: { readonly view: ProjectView }) {
   const day = chartPoints(view.hourly, view.recent, now, DAY_MS)
   const hasSeeded = long.some((p) => p.seeded)
   return (
-    <section className="mt-8">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.3em] text-dim">Score over time</h2>
+    <section className="mt-10">
+      <h2 className="section-head eyebrow mb-3">Score over time</h2>
       <div className="grid gap-4 lg:grid-cols-2">
         <ScoreChart title="Last 24 hours" points={day} from={now - DAY_MS} to={now} startLabel="24h ago" />
         <ScoreChart title={`Last ${LONG_DAYS} days`} points={long} from={now - LONG_DAYS * DAY_MS} to={now} startLabel={`${LONG_DAYS}d ago`} />
@@ -75,7 +75,7 @@ function LiveStory({ view, run, persona, backend }: LiveProps) {
         aside={comparison === null ? null : <AdvisorPanel comparison={comparison} />}
       />
       <TrustRow backend={backend} />
-      <LeakMatrix probes={probes} findings={findings} persona={persona} />
+      <LeakMatrix probes={probes} findings={findings} persona={persona} sweepKey={run.id} />
       <Charts view={view} />
       <FindingsList findings={findings} persona={persona} />
     </>
@@ -110,7 +110,7 @@ function FixedStory({ view, reference, persona, backend }: FixedProps) {
         A real scan of this database with the fix applied, on {date}. The live demo stays leaky, so the attack can be shown again.
       </p>
       <TrustRow backend={backend} />
-      <LeakMatrix probes={reference.probes} findings={[]} persona={persona} />
+      <LeakMatrix probes={reference.probes} findings={[]} persona={persona} sweepKey="fixed" before={{ probes: view.probes, findings: view.findings }} />
     </>
   )
 }
@@ -126,7 +126,7 @@ export default async function ProjectPage({ params }: { readonly params: Params 
   return (
     <main>
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <Link href="/" className="text-sm text-dim hover:text-ink">
+        <Link href="/" className="font-mono text-sm text-dim underline-offset-4 hover:text-ink hover:underline">
           ← All projects
         </Link>
         <div className="flex items-baseline gap-5">
@@ -134,7 +134,7 @@ export default async function ProjectPage({ params }: { readonly params: Params 
           <LiveRefresh projectId={project.id} />
         </div>
       </div>
-      {latest === null ? <p className="mt-10 text-xl text-dim">{project.name} has no scans yet.</p> : null}
+      {latest === null ? <p className="mt-10 font-display text-2xl text-dim">{project.name} has no scans yet.</p> : null}
       {latest !== null && reference === null ? <LiveStory view={view} run={latest} persona={persona} backend={backend} /> : null}
       {latest !== null && reference !== null ? (
         <FixedToggle

@@ -1,90 +1,558 @@
 @import 'tailwindcss';
 
+/*
+ * Red Row's design tokens. One signal colour: --leak means a proven leak or an open door, and
+ * nothing else. Blocked is calm and muted, own rows are a quiet green, everything else is neutral.
+ *
+ * Contrast (WCAG AA): --ink, --soft, --dim and --leak are for text at any size. --faint is
+ * only for large text and graphics (3:1). --line is decorative.
+ */
 @theme {
-  --color-ink: #e8e6df;
-  --color-dim: #8b8d91;
-  --color-faint: #4a4d54;
-  --color-line: #24272d;
-  --color-panel: #111317;
-  --color-bg: #0a0b0d;
-  --color-leak: #ff3b30;
-  --color-high: #ff7a59;
-  --color-ok: #4ade80;
-  --color-amber: #f5b53d;
-  --color-info: #5ac8e8;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-leak: var(--leak);
+  --color-own: var(--own);
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+  --font-display: var(--font-gloock), Georgia, 'Times New Roman', serif;
+}
+
+/* Light: warm paper and ink. */
+:root {
+  color-scheme: light;
+  --bg: #f4efe4;
+  --panel: #faf7ef;
+  --sunken: #ebe5d6;
+  --ink: #16130e;
+  --soft: #38332a;
+  --dim: #5e574a;
+  --faint: #8b8373;
+  --line: #d6cfbe;
+  --line-strong: #b4ac99;
+  --leak: #bd170c;
+  --leak-low: #cf3025;
+  --leak-high: #9c120a;
+  --leak-tint: rgba(189, 23, 12, 0.07);
+  --on-leak: #ffffff;
+  --own: #1f6b3d;
+  --own-fill: #dfe8d6;
+  --blocked: #6a6457;
+  --blocked-fill: #ebe6d9;
+  --neutral-fill: #ddd6c6;
+  --lift: rgba(22, 19, 14, 0.14);
+  --grain: 0.09;
+}
+
+/* Dark: deep ink and soft off-white. Stated twice: for the system setting, and for an explicit choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0d0e10;
+    --panel: #141518;
+    --sunken: #08090a;
+    --ink: #f1ede3;
+    --soft: #cfcabe;
+    --dim: #9d998e;
+    --faint: #6f6c64;
+    --line: #2a2b2e;
+    --line-strong: #47484d;
+    --leak: #ff5a4d;
+    --leak-low: #8f1d15;
+    --leak-high: #d4261b;
+    --leak-tint: rgba(255, 90, 77, 0.09);
+    --on-leak: #ffffff;
+    --own: #86c79c;
+    --own-fill: #15251b;
+    --blocked: #8f8c83;
+    --blocked-fill: #17181b;
+    --neutral-fill: #2a2b2f;
+    --lift: rgba(0, 0, 0, 0.5);
+    --grain: 0.07;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0d0e10;
+  --panel: #141518;
+  --sunken: #08090a;
+  --ink: #f1ede3;
+  --soft: #cfcabe;
+  --dim: #9d998e;
+  --faint: #6f6c64;
+  --line: #2a2b2e;
+  --line-strong: #47484d;
+  --leak: #ff5a4d;
+  --leak-low: #8f1d15;
+  --leak-high: #d4261b;
+  --leak-tint: rgba(255, 90, 77, 0.09);
+  --on-leak: #ffffff;
+  --own: #86c79c;
+  --own-fill: #15251b;
+  --blocked: #8f8c83;
+  --blocked-fill: #17181b;
+  --neutral-fill: #2a2b2f;
+  --lift: rgba(0, 0, 0, 0.5);
+  --grain: 0.07;
 }
 
 html {
-  background: var(--color-bg);
-  color-scheme: dark;
+  background: var(--bg);
 }
 
 body {
+  position: relative;
   min-height: 100vh;
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 100% 40px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 40px 100%,
-    var(--color-bg);
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-.band-good { --band: var(--color-ok); }
-.band-mid { --band: var(--color-amber); }
-.band-bad { --band: var(--color-leak); }
+/* Fine print grain over the whole page. Inline, so it adds no network request. */
+body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: var(--grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
 
-/* Score dial: lit ticks switch on in sequence, on load and when a live score changes. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* The masthead's double rule, and the heavy rule that opens each section. */
+.masthead {
+  border-bottom: 3px double var(--line-strong);
+}
+
+.section-head {
+  border-top: 2px solid var(--ink);
+  padding-top: 0.625rem;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* Cards and findings answer the pointer like a sheet lifted off the page. */
+.lift {
+  transition:
+    transform 0.2s ease-out,
+    box-shadow 0.2s ease-out,
+    border-color 0.2s ease-out;
+}
+.lift:hover {
+  transform: translate(-2px, -2px);
+  border-color: var(--line-strong);
+  box-shadow: 4px 4px 0 var(--lift);
+}
+
+/* Theme toggle and the before/after switch. */
+.theme-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+}
+.theme-option {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--dim);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+.theme-option:hover {
+  color: var(--ink);
+}
+.theme-option[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.fix-toggle {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--line-strong);
+}
+.fix-thumb {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 50%;
+  background: var(--ink);
+  transition: transform 0.35s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.fix-toggle[data-fixed='true'] .fix-thumb {
+  transform: translateX(100%);
+}
+.fix-option {
+  position: relative;
+  padding: 0.625rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--dim);
+  cursor: pointer;
+  transition: color 0.25s;
+}
+.fix-option:hover {
+  color: var(--ink);
+}
+.fix-option[aria-pressed='true'] {
+  color: var(--bg);
+}
+
+/* ---------- Score dial ---------- */
+.tone-leak {
+  --tone: var(--leak);
+}
+.tone-neutral {
+  --tone: var(--ink);
+}
+
 .tick {
-  stroke: var(--color-faint);
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.5;
-  transition: stroke 0.3s, opacity 0.3s;
+  stroke: var(--line-strong);
+  stroke-width: 2;
+  transition: stroke 0.3s;
   transition-delay: calc(var(--i) * 9ms);
 }
 .tick-lit {
-  stroke: var(--band);
-  opacity: 1;
-  filter: drop-shadow(0 0 3px var(--band));
-  animation: tick-on 0.35s both;
+  stroke: var(--tone);
+  animation: tick-on 0.25s backwards;
   animation-delay: calc(var(--i) * 9ms);
 }
 @keyframes tick-on {
-  from { stroke: var(--color-faint); opacity: 0.5; filter: none; }
+  from {
+    stroke: var(--line-strong);
+  }
 }
 
-/* Leak matrix. Red only ever means a leak, scaled by how many rows it exposed. */
+.needle {
+  stroke: var(--tone);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform: rotate(var(--to));
+  transform-origin: 190px 190px;
+  transition: transform 1s cubic-bezier(0.35, 0, 0.25, 1);
+  animation: needle-sweep var(--sweep) cubic-bezier(0.35, 0, 0.25, 1) backwards;
+}
+@keyframes needle-sweep {
+  from {
+    transform: rotate(-135deg);
+  }
+}
+/* A score of zero has no distance to sweep, so the needle tries, then falls back. */
+.needle-falls {
+  animation: needle-fall 1.3s cubic-bezier(0.45, 0, 0.3, 1) backwards;
+}
+@keyframes needle-fall {
+  0% {
+    transform: rotate(-135deg);
+  }
+  42% {
+    transform: rotate(-80deg);
+  }
+  100% {
+    transform: rotate(-135deg);
+  }
+}
+
+/* Hides the first frame, where the server's final number hasn't yet reset to count up. */
+.dial-readout {
+  animation: readout-in 0.3s 0.12s backwards;
+}
+@keyframes readout-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.stamp {
+  transform: rotate(-4deg);
+  animation: stamp-in 0.34s var(--stamp-delay, 1s) cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-4deg) scale(1.7);
+  }
+}
+
+/* ---------- Locks ---------- */
+.lock-shackle {
+  transform-origin: 5px 7px;
+}
+.lock-open .lock-shackle {
+  transform: rotate(-32deg);
+}
+.lock-unlocking {
+  animation: lock-pop 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+.lock-unlocking .lock-shackle {
+  animation: shackle-open 0.42s 0.06s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+@keyframes lock-pop {
+  from {
+    transform: scale(0.6);
+  }
+}
+@keyframes shackle-open {
+  from {
+    transform: rotate(0deg);
+  }
+}
+@keyframes shackle-close {
+  from {
+    transform: rotate(-32deg);
+  }
+}
+
+/* ---------- Attack replay ---------- */
+.caret {
+  position: relative;
+  display: inline-block;
+  width: 0;
+}
+.caret::after {
+  content: '';
+  position: absolute;
+  left: 0.08em;
+  bottom: -0.16em;
+  width: 0.56em;
+  height: 1.12em;
+  background: var(--ink);
+  animation: caret-blink 1.05s steps(1) infinite;
+}
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Who got into what ---------- */
 .cell {
+  position: relative;
   height: 2.75rem;
   text-align: center;
+  font-family: var(--font-mono);
   font-size: 1.05rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  transition: background-color 0.4s, color 0.4s;
+  animation: cell-in 0.42s min(calc(var(--n) * var(--stagger, 16ms)), 900ms) ease-out backwards;
+  transition:
+    background-color 0.4s,
+    color 0.4s;
 }
+@keyframes cell-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
 .cell-leak {
-  color: #fff;
-  background: rgba(255, 59, 48, calc(0.32 + 0.68 * var(--heat)));
-  box-shadow: inset 0 0 0 1px rgba(255, 59, 48, 0.8);
+  color: var(--on-leak);
+  background: color-mix(in srgb, var(--leak-high) calc(var(--heat) * 100%), var(--leak-low));
 }
-.cell-denied { color: rgba(74, 222, 128, 0.7); background: rgba(74, 222, 128, 0.09); font-weight: 400; }
-.cell-own { color: var(--color-ok); background: rgba(74, 222, 128, 0.16); }
-.cell-declared { color: #06222b; background: var(--color-info); }
-.cell-open { color: var(--color-info); background: rgba(90, 200, 232, 0.12); }
-.cell-na { color: var(--color-faint); background: #15171b; font-weight: 400; }
+/* The slow glow lives on its own layer, so only opacity animates. */
+.cell-leak::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3; /* Where it rests with motion off. */
+  box-shadow:
+    0 0 14px 1px var(--leak-high),
+    inset 0 0 10px rgba(255, 255, 255, 0.14);
+  animation: leak-glow 3.6s ease-in-out infinite;
+  animation-delay: calc(var(--n) * -130ms);
+}
+@keyframes leak-glow {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.cell-denied {
+  color: var(--blocked);
+  background: var(--blocked-fill);
+  font-weight: 400;
+}
+.cell-own {
+  color: var(--own);
+  background: var(--own-fill);
+}
+.cell-declared {
+  color: var(--ink);
+  background: var(--neutral-fill);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.cell-open {
+  color: var(--soft);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.cell-na {
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.legend-declared {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--neutral-fill);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* One pass across the grid on load, and again each time a sweep lands. */
+/* Above the pinned table names, or the line would show only in the gaps between their rows. */
+.scan-clip {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+}
+.scan-line {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  border-right: 1px solid var(--ink);
+  background: linear-gradient(90deg, transparent 86%, color-mix(in srgb, var(--ink) 9%, transparent));
+  transform: translateX(-100%);
+  animation: scan-sweep 1.7s 0.15s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+}
+@keyframes scan-sweep {
+  0% {
+    opacity: 1;
+    transform: translateX(-100%);
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* "See it fixed": the cells that were leaking go calm, and every lock closes, in reading order. */
+.map-fixing {
+  --stagger: 26ms;
+}
+/* The grid is already on screen, so it stays put instead of fading in again. */
+.map-fixing .cell {
+  animation: none;
+}
+.map-fixing .cell-was-leak {
+  animation: leak-to-calm 0.6s min(calc(var(--n) * var(--stagger)), 1100ms) ease-out backwards;
+}
+@keyframes leak-to-calm {
+  from {
+    color: var(--on-leak);
+    background: var(--leak-low);
+  }
+}
+.map-fixing .cell-denied .lock-shackle {
+  animation: shackle-close 0.42s min(calc(var(--n) * var(--stagger) + 180ms), 1280ms) cubic-bezier(0.3, 1.5, 0.5, 1) backwards;
+}
+
+/* ---------- Live indicator ---------- */
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.live-dot-on {
+  background: var(--ink);
+  animation: heartbeat 2.2s ease-in-out infinite;
+}
+.live-dot-on::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+  animation: heartbeat-ring 2.2s ease-out infinite;
+}
+@keyframes heartbeat {
+  0%,
+  28%,
+  100% {
+    transform: scale(1);
+  }
+  10%,
+  22% {
+    transform: scale(1.32);
+  }
+  16% {
+    transform: scale(1.05);
+  }
+}
+@keyframes heartbeat-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  55%,
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
 
 @media (max-width: 640px) {
-  .cell { height: 2.5rem; font-size: 0.85rem; }
+  .cell {
+    height: 2.5rem;
+    font-size: 0.85rem;
+  }
 }
 
-.live-dot {
-  animation: live-pulse 2s ease-in-out infinite;
-}
-@keyframes live-pulse {
-  50% { opacity: 0.35; }
-}
-
+/* Every animation only sets a "from", so with these off each element simply rests at its true state. */
 @media (prefers-reduced-motion: reduce) {
-  .tick, .tick-lit, .cell, .live-dot { animation: none; transition: none; }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .caret,
+  .scan-clip {
+    display: none;
+  }
+  .lift:hover {
+    transform: none;
+  }
 }
