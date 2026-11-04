@@ -1,0 +1,106 @@
+{
+  "ana": {
+    "readOnly": {
+      "score": 45,
+      "grade": "D",
+      "probes": 15,
+      "allowed": [
+        "doctors:user_a:select_others:1",
+        "profiles:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR102:critical:doctors",
+        "RR102:critical:profiles",
+        "RR007:medium:-",
+        "RR009:low:appointment_notes"
+      ]
+    },
+    "full": {
+      "score": 45,
+      "grade": "D",
+      "probes": 45,
+      "allowed": [
+        "doctors:user_a:select_others:1",
+        "profiles:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR102:critical:doctors",
+        "RR102:critical:profiles",
+        "RR007:medium:-",
+        "RR009:low:appointment_notes"
+      ]
+    }
+  },
+  "ben": {
+    "readOnly": {
+      "score": 10,
+      "grade": "F",
+      "probes": 15,
+      "allowed": [
+        "appointments:user_a:select_others:4",
+        "patients:user_a:select_others:2",
+        "profiles:user_a:select_others:2"
+      ],
+      "findings": [
+        "RR102:critical:appointments",
+        "RR102:critical:patients",
+        "RR102:critical:profiles",
+        "RR003:high:doctors",
+        "RR007:medium:-",
+        "RR009:low:appointment_notes"
+      ]
+    },
+    "full": {
+      "score": 0,
+      "grade": "F",
+      "probes": 45,
+      "allowed": [
+        "appointments:user_a:select_others:4",
+        "appointments:user_a:update_other:2",
+        "patients:user_a:select_others:2",
+        "profiles:user_a:select_others:2"
+      ],
+      "findings": [
+        "RR102:critical:appointments",
+        "RR102:critical:patients",
+        "RR102:critical:profiles",
+        "RR103:critical:appointments",
+        "RR003:high:doctors",
+        "RR007:medium:-",
+        "RR009:low:appointment_notes"
+      ]
+    }
+  },
+  "cho": {
+    "readOnly": {
+      "score": 45,
+      "grade": "D",
+      "probes": 15,
+      "allowed": [
+        "doctors:user_a:select_others:1",
+        "profiles:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR102:critical:doctors",
+        "RR102:critical:profiles",
+        "RR007:medium:-",
+        "RR009:low:appointment_notes"
+      ]
+    },
+    "full": {
+      "score": 45,
+      "grade": "D",
+      "probes": 45,
+      "allowed": [
+        "doctors:user_a:select_others:1",
+        "profiles:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR102:critical:doctors",
+        "RR102:critical:profiles",
+        "RR007:medium:-",
+        "RR009:low:appointment_notes"
+      ]
+    }
+  }
+}

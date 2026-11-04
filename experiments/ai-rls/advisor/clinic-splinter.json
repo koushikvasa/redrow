@@ -1,0 +1,128 @@
+[
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_clinic",
+    "object": "appointment_notes"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_clinic",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "invoices"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "patients"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "patients"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "multiple_permissive_policies",
+    "level": "WARN",
+    "schema": "app_clinic",
+    "object": "appointments"
+  },
+  {
+    "name": "multiple_permissive_policies",
+    "level": "WARN",
+    "schema": "app_clinic",
+    "object": "appointments"
+  },
+  {
+    "name": "multiple_permissive_policies",
+    "level": "WARN",
+    "schema": "app_clinic",
+    "object": "appointments"
+  },
+  {
+    "name": "multiple_permissive_policies",
+    "level": "WARN",
+    "schema": "app_clinic",
+    "object": "patients"
+  },
+  {
+    "name": "multiple_permissive_policies",
+    "level": "WARN",
+    "schema": "app_clinic",
+    "object": "profiles"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "schema": "public",
+    "object": "search_patients"
+  },
+  {
+    "name": "rls_policy_always_true",
+    "level": "WARN",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_clinic",
+    "object": "get_doctor_busy_slots"
+  }
+]

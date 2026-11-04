@@ -1,0 +1,8 @@
+{
+  "requested_model": "claude-sonnet-5-5",
+  "response_model": "claude-sonnet-5-5",
+  "stop_reason": "end_turn",
+  "input_tokens": 60,
+  "output_tokens": 15615,
+  "generated_at": "2026-11-04T21:23:42.837Z"
+}

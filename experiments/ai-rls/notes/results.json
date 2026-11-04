@@ -1,0 +1,50 @@
+{
+  "ana": {
+    "readOnly": {
+      "score": 100,
+      "grade": "A",
+      "probes": 15,
+      "allowed": [],
+      "findings": []
+    },
+    "full": {
+      "score": 100,
+      "grade": "A",
+      "probes": 45,
+      "allowed": [],
+      "findings": []
+    }
+  },
+  "ben": {
+    "readOnly": {
+      "score": 100,
+      "grade": "A",
+      "probes": 15,
+      "allowed": [],
+      "findings": []
+    },
+    "full": {
+      "score": 100,
+      "grade": "A",
+      "probes": 45,
+      "allowed": [],
+      "findings": []
+    }
+  },
+  "cho": {
+    "readOnly": {
+      "score": 100,
+      "grade": "A",
+      "probes": 15,
+      "allowed": [],
+      "findings": []
+    },
+    "full": {
+      "score": 100,
+      "grade": "A",
+      "probes": 45,
+      "allowed": [],
+      "findings": []
+    }
+  }
+}

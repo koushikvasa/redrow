@@ -1,0 +1,52 @@
+{
+  "schemas": [
+    "auth",
+    "extensions",
+    "graphql",
+    "graphql_public",
+    "pgbouncer",
+    "public",
+    "realtime",
+    "storage",
+    "vault"
+  ],
+  "public_counts": {
+    "appointments": 120,
+    "invoices": 120,
+    "patients": 120,
+    "profiles": 3,
+    "visit_notes": 360
+  },
+  "public_columns": {
+    "h": "a68f7f7e265296672aabce9249994dc0",
+    "n": 31
+  },
+  "public_policies": {
+    "h": "fd8c0747969cf09f1de4bd68eec47f26",
+    "n": 8
+  },
+  "public_functions": {
+    "h": "09989593b3ee89547ac92582f0cc3120",
+    "n": 1
+  },
+  "public_triggers": {
+    "h": "d41d8cd98f00b204e9800998ecf8427e",
+    "n": 0
+  },
+  "public_acl": {
+    "h": "5fcf680f6a98e52534efff8c6177c6c9",
+    "n": 12
+  },
+  "auth_users_triggers": {
+    "h": "d41d8cd98f00b204e9800998ecf8427e",
+    "n": 0
+  },
+  "extensions": {
+    "h": "7f2bc4c4e4cb4f997c3403e6e838a1a2",
+    "n": 5
+  },
+  "realtime_tables": {
+    "h": "d41d8cd98f00b204e9800998ecf8427e",
+    "n": 0
+  }
+}

@@ -1,0 +1,92 @@
+[
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_tasks",
+    "object": "tasks"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_tasks",
+    "object": "teams"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "invoices"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "patients"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "patients"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "schema": "public",
+    "object": "search_patients"
+  },
+  {
+    "name": "rls_policy_always_true",
+    "level": "WARN",
+    "schema": "public",
+    "object": "appointments"
+  }
+]

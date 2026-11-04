@@ -1,0 +1,140 @@
+[
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_chat",
+    "object": "conversations"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_chat",
+    "object": "messages"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "app_chat",
+    "object": "messages"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "invoices"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "patients"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "unindexed_foreign_keys",
+    "level": "INFO",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "patients"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "visit_notes"
+  },
+  {
+    "name": "auth_rls_initplan",
+    "level": "WARN",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "schema": "public",
+    "object": "search_patients"
+  },
+  {
+    "name": "rls_policy_always_true",
+    "level": "WARN",
+    "schema": "public",
+    "object": "appointments"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "create_direct_conversation"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "create_group_conversation"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "handle_new_user"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "has_conversation_role"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "is_conversation_member"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "is_group_conversation"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "schema": "app_chat",
+    "object": "messages_bump_conversation"
+  }
+]

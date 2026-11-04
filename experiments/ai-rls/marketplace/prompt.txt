@@ -1,0 +1,1 @@
+Generate the Supabase Postgres schema with RLS policies for: marketplace with buyers, sellers and orders. Users sign in with Supabase Auth.

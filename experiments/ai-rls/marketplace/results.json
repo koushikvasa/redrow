@@ -1,0 +1,118 @@
+{
+  "ana": {
+    "readOnly": {
+      "score": 46,
+      "grade": "D",
+      "probes": 13,
+      "allowed": [
+        "order_items:user_a:select_all:2",
+        "products:anon:select_all:3",
+        "products:user_a:select_all:3",
+        "sellers:anon:select_all:2",
+        "sellers:user_a:select_others:2"
+      ],
+      "findings": [
+        "RR101:critical:sellers",
+        "RR102:critical:sellers",
+        "RR007:medium:-"
+      ]
+    },
+    "full": {
+      "score": 46,
+      "grade": "D",
+      "probes": 37,
+      "allowed": [
+        "order_items:user_a:select_all:2",
+        "products:anon:select_all:3",
+        "products:user_a:select_all:3",
+        "sellers:anon:select_all:2",
+        "sellers:user_a:select_others:2"
+      ],
+      "findings": [
+        "RR101:critical:sellers",
+        "RR102:critical:sellers",
+        "RR007:medium:-"
+      ]
+    }
+  },
+  "ben": {
+    "readOnly": {
+      "score": 21,
+      "grade": "F",
+      "probes": 13,
+      "allowed": [
+        "order_items:user_a:select_all:2",
+        "orders:user_a:select_others:2",
+        "products:anon:select_all:3",
+        "products:user_a:select_all:3",
+        "sellers:anon:select_all:2",
+        "sellers:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR101:critical:sellers",
+        "RR102:critical:orders",
+        "RR102:critical:sellers",
+        "RR007:medium:-"
+      ]
+    },
+    "full": {
+      "score": 21,
+      "grade": "F",
+      "probes": 37,
+      "allowed": [
+        "order_items:user_a:select_all:2",
+        "orders:user_a:select_others:2",
+        "products:anon:select_all:3",
+        "products:user_a:select_all:3",
+        "sellers:anon:select_all:2",
+        "sellers:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR101:critical:sellers",
+        "RR102:critical:orders",
+        "RR102:critical:sellers",
+        "RR007:medium:-"
+      ]
+    }
+  },
+  "cho": {
+    "readOnly": {
+      "score": 21,
+      "grade": "F",
+      "probes": 13,
+      "allowed": [
+        "order_items:user_a:select_all:2",
+        "orders:user_a:select_others:1",
+        "products:anon:select_all:3",
+        "products:user_a:select_all:3",
+        "sellers:anon:select_all:2",
+        "sellers:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR101:critical:sellers",
+        "RR102:critical:orders",
+        "RR102:critical:sellers",
+        "RR007:medium:-"
+      ]
+    },
+    "full": {
+      "score": 21,
+      "grade": "F",
+      "probes": 37,
+      "allowed": [
+        "order_items:user_a:select_all:2",
+        "orders:user_a:select_others:1",
+        "products:anon:select_all:3",
+        "products:user_a:select_all:3",
+        "sellers:anon:select_all:2",
+        "sellers:user_a:select_others:1"
+      ],
+      "findings": [
+        "RR101:critical:sellers",
+        "RR102:critical:orders",
+        "RR102:critical:sellers",
+        "RR007:medium:-"
+      ]
+    }
+  }
+}

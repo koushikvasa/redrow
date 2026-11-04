@@ -1,0 +1,62 @@
+{
+  "ana": {
+    "readOnly": {
+      "score": 99,
+      "grade": "A",
+      "probes": 12,
+      "allowed": [],
+      "findings": [
+        "RR009:low:teams"
+      ]
+    },
+    "full": {
+      "score": 99,
+      "grade": "A",
+      "probes": 36,
+      "allowed": [],
+      "findings": [
+        "RR009:low:teams"
+      ]
+    }
+  },
+  "ben": {
+    "readOnly": {
+      "score": 99,
+      "grade": "A",
+      "probes": 12,
+      "allowed": [],
+      "findings": [
+        "RR009:low:teams"
+      ]
+    },
+    "full": {
+      "score": 99,
+      "grade": "A",
+      "probes": 36,
+      "allowed": [],
+      "findings": [
+        "RR009:low:teams"
+      ]
+    }
+  },
+  "cho": {
+    "readOnly": {
+      "score": 99,
+      "grade": "A",
+      "probes": 12,
+      "allowed": [],
+      "findings": [
+        "RR009:low:teams"
+      ]
+    },
+    "full": {
+      "score": 99,
+      "grade": "A",
+      "probes": 36,
+      "allowed": [],
+      "findings": [
+        "RR009:low:teams"
+      ]
+    }
+  }
+}
