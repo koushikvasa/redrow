@@ -59,6 +59,10 @@ Raw scores still ran from 100/A to 0/F, because Red Row proves who can reach whi
 That's 5 samples from one model, so it doesn't show AI-written RLS is safe, and it's why you'd test yours rather than assume.
 We then gave it 5 real permission errors to fix. [It refused the unsafe shortcut each time](experiments/ai-rls/RESULTS.md#experiment-2-what-happens-when-ai-fixes-a-permission-error), and every attack we tried on the result was denied.
 
+**Red Row doesn't assume your RLS is broken. It finds out.**
+
+**Reading the score:** the score counts schema findings, like `SECURITY DEFINER` functions, as well as proven leaks, and access the app intends counts too, so a safe app can score low. Read the "Who got into what" map and the proven leaks first, then judge them against what the app should allow. On the roadmap, and not built yet: intent rules in plain English, so only access that breaks intent is flagged.
+
 **The problem:** in [an audit of 200 vibe-coded apps](https://arxiv.org/abs/2606.23130), 91% had at least one vulnerability, and 65.77% of the vulnerabilities were Critical or High, concentrated in broken access control, injection and authentication failures. [More below](#why-this-exists).
 
 **Supabase's Advisor reads policy text. Red Row logs in and tries.**
