@@ -61,7 +61,7 @@ Two separate Supabase cloud projects (free tier allows 2):
 
 ## Non-negotiable safety rules (the product's credibility depends on these)
 
-1. **Every probe runs inside `sql.begin()` and always ends in ROLLBACK.** Implement by throwing a private `RollbackSignal` at the end of the transaction callback and catching it. Each individual probe runs in a `savepoint` so one error doesn't abort the rest. Write a test that proves nothing persists.
+1. **Every probe runs inside `sql.begin()` and always ends in ROLLBACK.** Implement by throwing a private `RollbackSignal` at the end of the transaction callback and catching it. Each probe gets its own transaction, so one error can't affect the rest. Write a test that proves nothing persists.
 2. **Never read or print row contents.** The engine may only read: counts, owner-column ids (uuids), catalog metadata. No `select *` on user tables anywhere.
 3. Per transaction: `set local statement_timeout = '5s'`, `set local lock_timeout = '1s'`.
 4. Identifiers are always escaped via the driver's identifier helper (`sql(name)`), never string-concatenated. Role names come from a fixed whitelist (`anon`, `authenticated`).
@@ -74,7 +74,7 @@ Two separate Supabase cloud projects (free tier allows 2):
 - Small pure functions; the engine returns plain data (`ScanResult`), renderers are separate.
 - Rule IDs `RR001`… defined once in `packages/engine/src/rules.ts` (see ENGINE.md).
 - Every finding has: `ruleId, severity, schema, table?, title, detail, rowsExposed?, fixHint`.
-- Exit codes: `0` ok, `1` score below `--fail-under` (default 0 = never fail), `2` usage/connection error.
+- Exit codes: `0` no findings at or above `--severity` (default `low`), `1` findings, `2` usage/connection error, or every probe inconclusive.
 - Prefer clear error messages for the common Supabase gotchas (see below).
 
 ## Supabase gotchas to handle
@@ -87,7 +87,7 @@ Two separate Supabase cloud projects (free tier allows 2):
 
 ## Definition of done (hackathon)
 
-- `npx redrow scan --db $DEMO_DB_URL` prints a red report in < 10 s; `--html` writes a self-contained report.
+- `npx redrow scan --db $DEMO_DB_URL` prints a red report in < 10 s (the demo host is in `allowHosts`, or pass `-y`); `--html` writes a self-contained report.
 - `npx redrow fix --from report.json` writes a migration; after applying it, rescan = 100 (or near).
 - HQ scanning itself = 100. pg_cron sweep writes a scan every minute. Sodabase connected.
 - Dashboard live on Vercel: score dial, leak matrix, score-over-time, findings with copyable fix SQL.

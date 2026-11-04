@@ -28,7 +28,7 @@ Supabase Security Advisor is a static linter: it tells you RLS is **on**. A poli
 
 ## 3-minute demo script
 1. **(0:00) Hook.** "Raise your hand if an AI has written an RLS policy for you. This is CareNote — a clinic app the way an AI builder generates it. Supabase Advisor is mostly happy with it."
-2. **(0:25) Attack.** Run `npx redrow scan --db $CARENOTE`. Terminal turns red: score 18/F. "Logged in as Dr. Ana, I can read **all 120 patients**, and delete Dr. Ben's notes. Anonymous visitors can read every clinician's email."
+2. **(0:25) Attack.** Run `npx redrow scan --db $CARENOTE`. Terminal turns red: score 0/F. "Logged in as Dr. Ana, I can read **all 120 patients**, and delete Dr. Ben's notes. Anonymous visitors can read every clinician's email."
 3. **(1:05) Matrix.** Dashboard: leak matrix (anon / Dr. Ana / Dr. Ben × tables × read/insert/update/delete). Red cells with row counts. Invoices row is green — "the one table the AI got right."
 4. **(1:35) Fix.** `npx redrow fix --apply`. Show the generated migration, every block labeled with the rule it fixes. Rescan → 100/A. Dial animates.
 5. **(2:10) Safety.** "Every attack runs inside a transaction that's rolled back. We record counts and ids, never row contents. Safe to run on prod."

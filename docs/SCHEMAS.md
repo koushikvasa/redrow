@@ -1,6 +1,6 @@
 # Schemas — HQ (dashboard) and CareNote (demo target)
 
-Two separate Supabase projects. HQ must be **clean** (scores 100 on Red Row, scores well on Sodabase). CareNote must be **deliberately leaky** (scores ~20, then 100 after `redrow fix`).
+Two separate Supabase projects. HQ must be **clean** (scores 100 on Red Row, scores well on Sodabase). CareNote must be **deliberately leaky** (scores 0, then 100 after `redrow fix`).
 
 ---
 
@@ -57,7 +57,7 @@ create table public.findings (
   scan_run_id  uuid not null references public.scan_runs(id) on delete cascade,
   project_id   uuid not null references public.projects(id) on delete cascade, -- denormalized for RLS + fast filters
   rule_id      text not null check (rule_id ~ '^RR[0-9]{3}$'),
-  severity     text not null check (severity in ('critical','high','medium','low')),
+  severity     text not null check (severity in ('critical','high','medium','low','info')),  -- info = declared exposure
   schema_name  text not null,
   table_name   text,
   title        text not null,
@@ -122,8 +122,11 @@ alter publication supabase_realtime add table public.scan_runs, public.findings;
 ```
 
 ### Edge functions (`hq/supabase/functions/`)
-- **`ingest`** — POST a `ScanResult` with header `x-redrow-key` (per-project ingest key stored as a Supabase secret for the hackathon). Validates shape, inserts `scan_runs` + `findings` + `probe_results` in one transaction. Used by `redrow scan --upload`.
-- **`sweep`** — called by `pg_cron` every minute. Connects to the CareNote demo DB (`DEMO_DB_URL` secret) and to HQ itself (`SUPABASE_DB_URL`), runs the engine (`_shared/engine`), inserts results. This is both a real feature ("continuous red-team") and what keeps HQ tables fresh for Sodabase.
+- **`ingest`** — POST a `Report` (the `redrow scan --json` shape, ENGINE.md §5) with header `x-redrow-key` (per-project ingest key stored as a Supabase secret for the hackathon). Validates shape, inserts `scan_runs` + `findings` + `probe_results` in one transaction. Used by `redrow scan --upload`.
+- **`sweep`** — called by `pg_cron` every minute. Connects to the CareNote demo DB (`DEMO_DB_URL` secret) and to HQ itself (`SUPABASE_DB_URL`), runs the engine (`_shared/engine`), inserts results. This is both a real feature ("continuous red-team") and what keeps HQ tables fresh for Sodabase. When scanning HQ, it passes `publicTables: ['projects']`, because the judges' board is meant to be readable by anon.
+
+### Reaching 100 on the self-scan
+`projects_read` lets anon read `is_public` rows on purpose, so without a declaration RR101 fires and HQ scores 75. With `projects` in `publicTables`, that read is reported as declared exposure (`info`) and scores nothing. A declaration only covers anon's reads, so **all seeded projects need the same owner**: a signed-in user seeing a public project owned by someone else fires RR102, which still counts.
 
 ### Cron (`0002_cron.sql`)
 ```sql
@@ -139,7 +142,7 @@ $$);
 ```
 
 ### Seed (`hq/scripts/seed-history.mjs`)
-Creates the public demo projects ("CareNote demo", "Red Row HQ (self-scan)") and backfills **one scan every 15 minutes for 14 days** with realistic score drift (CareNote hovering 15–30, HQ 100). Uses explicit `created_at` values in the past. Inserts only.
+Creates the public demo projects ("CareNote demo", "Red Row HQ (self-scan)") and backfills **one scan every 15 minutes for 14 days** with realistic score drift (CareNote hovering 0–10, HQ 100). Both projects get the same owner. Uses explicit `created_at` values in the past. Inserts only.
 
 ---
 
@@ -204,7 +207,8 @@ create policy "Authenticated users can view patients" on public.patients
 create policy "Users can insert patients" on public.patients
   for insert to authenticated with check (clinician_id = auth.uid());   -- RR008: bare auth.uid()
 
--- BUG 3 (RR004 / RR103): update scoped by USING but no WITH CHECK → a note can be re-assigned to another author.
+-- BUG 3 (RR004): update scoped by USING with no explicit WITH CHECK. Postgres reuses USING as the check, so this
+-- can't re-assign a note, but the rule is only implied. (RR103 on CareNote comes from profiles, which has RLS off.)
 alter table public.visit_notes enable row level security;
 create policy "Authors read own notes" on public.visit_notes
   for select to authenticated using (author_id = auth.uid());

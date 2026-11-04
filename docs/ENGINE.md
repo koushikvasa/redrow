@@ -3,16 +3,28 @@
 The engine is `packages/engine`. Public API:
 
 ```ts
-export async function scan(sql: Sql, opts: ScanOptions): Promise<ScanResult>
-// ScanOptions: { schemas: string[] (default ['public']), readOnly: boolean,
-//               ownerColumns?: Record<string /* table */, string /* column */> }
+export async function scan(sql: Sql, opts?: ScanOptions): Promise<ScanResult>
+export function toReport(result: ScanResult): Report   // the public JSON contract, §5
+
+interface ScanOptions {
+  schemas?: readonly string[]        // default ['public']
+  readOnly?: boolean                 // skip every write probe; reads run in a READ ONLY transaction
+  ownerColumns?: Record<string /* table */, string /* column */>  // wins over detection
+  tables?: readonly string[]         // limit the scan; views and functions are left out too
+  actors?: { userA: string; userB: string }  // instead of picking them from the data
+  roles?: { anon?: boolean; authenticated?: boolean }             // skip all probes for a role
+  publicTables?: readonly string[]   // tables anon is meant to read, §4
+  onPhase?: (phase: 'introspect' | 'actors' | 'probes') => void
+}
 ```
 
-Pipeline: **introspect → static rules → pick actors → dynamic probes → score**. All catalog reads run as the connecting role (normally `postgres`). All probes run inside a rolled-back transaction.
+Pipeline: **introspect → static rules → pick actors → dynamic probes → merge → declared exposure → score**. Catalog reads and row totals run as the connecting role (normally `postgres`). Probes run as `anon` / `authenticated`, each in its own rolled-back transaction.
 
 ---
 
 ## 1. Introspection (catalog only, no user data)
+
+All queries bind schemas as `${schemas}::text[]`. postgres.js v4 removed `sql.array()`.
 
 ### Tables + grants
 ```sql
@@ -27,21 +39,26 @@ select n.nspname as schema, c.relname as table, c.oid,
        has_table_privilege('authenticated', c.oid, 'UPDATE') as auth_update,
        has_table_privilege('authenticated', c.oid, 'DELETE') as auth_delete
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
-where c.relkind in ('r','p') and n.nspname = any(${schemas});
+where c.relkind in ('r','p') and n.nspname = any(${schemas}::text[])
+order by 1, 2;
 ```
 
 ### Columns (names + types only, for sensitivity + owner detection)
+`writable` is false for generated and `generated always` identity columns, which can't be assigned to.
 ```sql
-select c.oid as table_oid, a.attnum, a.attname as column, format_type(a.atttypid, a.atttypmod) as type
+select c.oid as table_oid, a.attnum, a.attname as column, format_type(a.atttypid, a.atttypmod) as type,
+       (a.attgenerated = '' and a.attidentity <> 'a') as writable
 from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = any(${schemas}) and c.relkind in ('r','p') and a.attnum > 0 and not a.attisdropped;
+where n.nspname = any(${schemas}::text[]) and c.relkind in ('r','p') and a.attnum > 0 and not a.attisdropped
+order by 1, 2;
 ```
 
 ### Policies
 ```sql
 select schemaname as schema, tablename as table, policyname as name, permissive,
-       roles, cmd, qual, with_check
-from pg_policies where schemaname = any(${schemas});
+       roles::text[] as roles, cmd, qual, with_check
+from pg_policies where schemaname = any(${schemas}::text[])
+order by 1, 2, 3;
 ```
 
 ### Views (RLS bypass)
@@ -52,7 +69,8 @@ select n.nspname as schema, c.relname as view, c.relkind,
        has_table_privilege('anon', c.oid, 'SELECT') as anon_select,
        has_table_privilege('authenticated', c.oid, 'SELECT') as auth_select
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
-where c.relkind in ('v','m') and n.nspname = any(${schemas});
+where c.relkind in ('v','m') and n.nspname = any(${schemas}::text[])
+order by 1, 2;
 ```
 
 ### SECURITY DEFINER functions callable from the API
@@ -61,144 +79,258 @@ select n.nspname as schema, p.proname as name, pg_get_function_identity_argument
        has_function_privilege('anon', p.oid, 'EXECUTE') as anon_exec,
        has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth_exec
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-where p.prosecdef and n.nspname = any(${schemas});
+where p.prosecdef and n.nspname = any(${schemas}::text[])
+order by 1, 2, 3;
 ```
 
 ### Owner column detection (in priority order)
-1. `ownerColumns` from `redrow.config.json`.
-2. FK to `auth.users(id)`:
+1. `ownerColumns` from `redrow.config.json`. A column that doesn't exist on the table is an error.
+2. FK to `auth.users(id)`. A primary key that is itself such an FK wins (`profiles.id`), because the table is 1:1 with users. Among other FKs, the name list below breaks ties, then column order.
 ```sql
-select con.conrelid as table_oid, a.attname as column
+select con.conrelid as table_oid, a.attname as column,
+       exists (select 1 from pg_constraint pk
+               where pk.conrelid = con.conrelid and pk.contype = 'p'
+                 and pk.conkey = array[a.attnum]) as is_sole_pk
 from pg_constraint con
 join pg_attribute a on a.attrelid = con.conrelid and a.attnum = any(con.conkey)
 where con.contype = 'f' and con.confrelid = 'auth.users'::regclass;
 ```
-3. Name heuristic on `uuid` columns: `user_id, owner_id, created_by, author_id, profile_id, clinician_id, account_id`.
-4. Table whose **primary key** is an FK to `auth.users` (e.g. `profiles.id`) → owner column = pk.
+3. Name heuristic on `uuid` columns, in this order: `user_id, owner_id, created_by, author_id, profile_id, clinician_id, account_id`.
 
-### Index check for a column
+### Index check (leading columns, one query for all)
 ```sql
-select exists (select 1 from pg_index i where i.indrelid = ${oid} and i.indkey[0] = ${attnum});
+select i.indrelid as table_oid, i.indkey[0] as attnum
+from pg_index i join pg_class c on c.oid = i.indrelid join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = any(${schemas}::text[]);
 ```
 
-### Sensitive-column heuristic (bumps severity)
-Column name contains any of: `email, phone, dob, birth, ssn, address, diagnosis, note, medical, salary, token, secret, password, card, iban`.
+### Sensitive-column heuristic
+Column name contains any of: `email, phone, dob, birth, ssn, address, diagnosis, note, medical, salary, token, secret, password, card, iban`. It decides whether RR003, RR101 and un-owned-table evidence apply. It doesn't change a rule's severity.
+
+### Missing Supabase objects
+SQLSTATE `42P01`, `3F000` or `42704` during introspection means `auth.users` or the API roles are absent. The scan fails with "This doesn't look like a Supabase database".
 
 ---
 
 ## 2. Static rules
 
+Policies apply to the API only if their roles include `public`, `anon` or `authenticated`. `service_role` has BYPASSRLS, so its policies are ignored. RR003, RR004 and RR005 also need a permissive policy: a restrictive one can only narrow access.
+
 | ID | Severity | Condition |
 |---|---|---|
-| RR001 | critical | Table in exposed schema, **RLS disabled**, and `anon_select` (publicly readable via API) |
-| RR002 | high | RLS disabled, only `authenticated` has privileges |
-| RR003 | high | Policy for SELECT/ALL with `qual` = `true` on a table with an owner column or sensitive columns |
-| RR004 | medium | UPDATE/ALL policy with `qual` but **no `with_check`** (rows can be re-owned) |
-| RR005 | medium | INSERT policy with `with_check` null or `true` on owned table |
+| RR001 | critical | Table in a scanned schema, **RLS disabled**, and `anon_select` (publicly readable via API) |
+| RR002 | high | RLS disabled, no `anon_select`, and `anon` or `authenticated` holds any privilege |
+| RR003 | high | SELECT/ALL policy with `qual` = `true` on a table with an owner column or sensitive columns |
+| RR004 | medium | UPDATE/ALL policy with `qual` but **no `with_check`**. Postgres reuses USING as the check, so rows can only be re-owned if USING isn't owner-scoped; an explicit WITH CHECK states the rule either way |
+| RR005 | medium | INSERT policy on an owned table with `with_check` = `true` (any owner can be written), or null (Postgres **denies every insert**, probably by mistake) |
 | RR006 | high | View/matview selectable by anon/authenticated **without `security_invoker`** (bypasses RLS) |
 | RR007 | high | SECURITY DEFINER function executable by `anon` (medium if only `authenticated`) |
 | RR008 | low | Policy uses bare `auth.uid()` (not `( SELECT auth.uid() AS uid)`) — per-row re-evaluation, slow at scale |
-| RR009 | low | Owner column used in a policy has no index |
-| RR010 | medium | RLS enabled but **zero policies** and privileges granted (table silently returns nothing — likely a bug) — informational-ish |
+| RR009 | low | Owner column used in a policy has no index leading with it |
+| RR010 | medium | RLS enabled but **zero policies** and privileges granted (table silently returns nothing — likely a bug) |
 
 Dynamic rules (from probes, section 3):
 
 | ID | Severity | Condition |
 |---|---|---|
 | RR101 | critical | `anon` can SELECT ≥1 row of an owned or sensitive table |
-| RR102 | critical | user A can SELECT rows owned by user B (`rowsExposed` = count) |
-| RR103 | critical | user A can UPDATE rows owned by B |
-| RR104 | critical | user A can DELETE rows owned by B |
+| RR102 | critical | user A can SELECT rows owned by others (`rowsExposed` = count) |
+| RR103 | critical | user A can UPDATE rows owned by others |
+| RR104 | critical | user A can DELETE rows owned by others |
 | RR105 | high | user A can INSERT a row owned by B |
-| RR106 | high | `anon` can UPDATE/DELETE/INSERT on any table |
+| RR106 | high | `anon` can UPDATE/DELETE/INSERT on any table (one finding per action) |
 
-Dedupe: if RR102 fires, suppress RR003 for the same table (dynamic proof wins; keep RR003 text as the explanation).
+Dedupe: if RR102 fires, suppress RR003 for the same table (dynamic proof wins; RR003's text is kept in RR102's detail as the cause, and its policy name is kept).
+
+Every hint quotes identifiers, so it stays valid for names like `"User"`. Prose in a hint goes in a trailing SQL comment, so it can be pasted and run as is.
 
 ---
 
 ## 3. Dynamic probes
 
-### Picking actors (ids only)
-For each owned table, as the connecting role:
-```sql
-select ${owner} as owner, count(*)::int as n from ${table} where ${owner} is not null
-group by 1 order by 2 desc limit 2;
-```
-- `userA` = most frequent owner across owned tables (prefer one that appears in several tables).
-- `userB` = a different real owner if one exists, else `gen_random_uuid()`.
-- `anon` = no sub.
-Also record `total` row count per table (`select count(*)`), as the connecting role.
+**Every probe runs in its own transaction, and so gets its own rollback.** Probes for one table run one after another, so one probe's row locks can't trip the next one's lock timeout. Up to 4 tables run at once. A name holding a dot can't be probed, because the driver's `sql(name)` turns `a.b` into `"a"."b"`: its probes are marked inconclusive and the report carries a warning.
 
-### Impersonation (inside the transaction)
-```ts
-await tx.unsafe(`set local role ${role}`)              // role ∈ {'anon','authenticated'} only
-await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub, role })}, true)`
-await tx`select set_config('request.jwt.claim.sub', ${sub ?? ''}, true)`
-await tx`select set_config('request.jwt.claim.role', ${role}, true)`
-```
-Then `reset role` between actors (or use one transaction per actor — simpler, preferred).
-
-### Probes per table (each in its own savepoint)
-As **anon**:
-- `select count(*) from T` → `anonVisible`
-- if not readOnly: `update T set ${owner} = ${owner}` (or first column = itself if no owner) → affected count; `delete from T` → affected count
-
-As **userA** (owned tables):
-- `select count(*) from T where ${owner} = ${A}` → `ownVisible`
-- `select count(*) from T where ${owner} is distinct from ${A}` → `othersVisible` (RR102 if > 0)
-- not readOnly:
-  - `update T set ${owner} = ${owner} where ${owner} = ${B}` → affected (RR103)
-  - `delete from T where ${owner} = ${B}` → affected (RR104)
-  - `insert into T (${owner}) values (${B})` → success = RR105; SQLSTATE `42501` = denied; other errors (`23502` not-null, `23503` FK, …) = `inconclusive`
-    - v2 (stretch): copy one of A's rows into a temp structure, swap owner to B, drop PK/generated/unique columns, retry.
-
-As **userA** (un-owned tables with RLS enabled): `select count(*)` → if equals `total` and table has sensitive columns → RR003 evidence ("every signed-in user sees all N rows").
-
-Record every probe as `ProbeResult { table, actor, action, outcome: 'allowed'|'denied'|'inconclusive'|'not_applicable', rowCount }`.
-
-### Rollback wrapper
+### Rollback wrapper (`src/tx.ts`)
 ```ts
 class RollbackSignal extends Error {}
-async function inRolledBackTx<T>(sql: Sql, fn: (tx: TransactionSql) => Promise<T>): Promise<T> {
-  let out!: T
+async function inRolledBackTx<T>(sql: Sql, fn: (tx: TransactionSql) => Promise<T>, { readOnly = false } = {}): Promise<T> {
+  const mode = `isolation level repeatable read${readOnly ? ' read only' : ''}`
+  let out: T | undefined
   try {
-    await sql.begin(async tx => {
+    await sql.begin(mode, async tx => {
       await tx`set local statement_timeout = '5s'`
       await tx`set local lock_timeout = '1s'`
       out = await fn(tx)
       throw new RollbackSignal()
     })
   } catch (e) { if (!(e instanceof RollbackSignal)) throw e }
-  return out
+  return out as T
 }
 ```
-Test: run a probe that inserts, then assert the row count is unchanged afterwards.
+Repeatable read keeps before and after counts comparable: another session's commit can't shift them, while the transaction still sees its own writes.
+
+### Picking actors (ids only)
+For each table, as the connecting role, inside a rolled-back transaction: `select count(*)` for the total, and for owned tables:
+```sql
+select ${owner}::text as owner, count(*)::int as n from ${table} where ${owner} is not null
+group by 1 order by 2 desc limit 2;
+```
+- `userA` = the owner found in the most tables, then with the most rows. Non-uuid values are ignored, because `auth.uid()` would fail on them.
+- `userB` = the next owner if one exists, else `gen_random_uuid()`.
+- `anon` = no sub.
+- A count that hits the statement timeout leaves the total null rather than failing the scan.
+
+### Impersonation (inside the transaction)
+```ts
+await tx.unsafe(`set local role ${role}`)              // role ∈ {'anon','authenticated'} only
+await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub, role })}, true),
+                set_config('request.jwt.claim.sub', ${sub ?? ''}, true),
+                set_config('request.jwt.claim.role', ${role}, true)`
+```
+`set_config(..., true)` is the parameterized form of `SET LOCAL`. **A failed role switch raises `ImpersonationError` and fails the whole scan.** Read as a denied probe, it would make every table look safe.
+
+A connecting role that isn't a superuser and doesn't have BYPASSRLS gets a warning, because its counts may be low and leaks can be missed.
+
+### Why these probes write without a WHERE
+A `WHERE` or `SET` that reads a column also applies the **SELECT policy**. So on a table with an owner-scoped read policy, `delete from T where owner = B` affects 0 rows even when the delete policy is wide open, and a plain `delete from T` removes B's rows. The real attack needs no WHERE, so the probes don't use one. They measure the effect by counting other users' rows as the connecting role, before and after, within the transaction:
+```ts
+before = count(*) where owner is distinct from A   // as the connecting role
+impersonate(A); <mutation>; set local role none
+after  = count(*) where owner is distinct from A   // sees this transaction's own writes
+rowCount = before - after                          // > 0 means allowed; no other users' rows means not_applicable
+```
+
+### Probes per table
+As **anon**:
+- `select_all`: `select count(*) from T`
+- not read-only:
+  - `update_any`: `update T set C = C`, where C is the owner column or else the first writable column. No such column is `not_applicable`.
+  - `delete_any`: `delete from T`
+  - `insert_other`: `insert into T (owner) values (B)`, or `insert into T default values` on an un-owned table
+
+As **userA**, on owned tables:
+- `select_own`: `select count(*) from T where owner = A`
+- `select_others`: `select count(*) from T where owner is distinct from A` (RR102 if > 0)
+- not read-only:
+  - `update_other`, in two steps. First `update T set owner = owner where owner = B`. If that is denied, for either reason (0 rows because the SELECT policy hid them, or `42501` because WITH CHECK rejected B's row staying B's), then the re-own `update T set owner = A`, measured by before and after counts. This catches `using (true) with check (owner = auth.uid())`, which lets anyone claim every row.
+  - `delete_other`: `delete from T`, measured by before and after counts (RR104)
+  - `insert_other`: `insert into T (owner) values (B)`, measured by counting B's rows before and after, because a BEFORE trigger may have rewritten the owner to the caller
+
+As **userA**, on un-owned tables: `select_all`, `select count(*) from T`. If it equals the total, RLS is on and the table has sensitive columns, that is RR003 evidence ("every signed-in user sees all N rows").
+
+### Outcomes
+| Result | Outcome | `rowCount` |
+|---|---|---|
+| Count > 0 | `allowed` | the count |
+| Count = 0 | `denied` | 0 |
+| SQLSTATE `42501` | `denied` | null |
+| Insert fails with `23502`, `23503`, `23505`, `23514` or `23P01` | `allowed` | null |
+| No other users' rows to affect | `not_applicable` | 0 |
+| No column can be assigned (`update_any`) | `not_applicable` | null |
+| `55P03`, `40P01`, `40001` | retried once, then `inconclusive` | null |
+| Any other SQLSTATE, such as `57014` (timeout) or a trigger raising | `inconclusive` | null |
+| Error with no SQLSTATE (lost connection) | the scan fails | |
+
+**Constraint errors on insert count as allowed because Postgres checks RLS WITH CHECK first.** A denied row gets `42501`, so `23502` means RLS let it through and only an incomplete test row was rejected. A complete row would succeed.
+
+Read-only mode doesn't record the write probes at all.
+
+Every probe is recorded as `ProbeResult { schema, table, actor, action, outcome: 'allowed'|'denied'|'inconclusive'|'not_applicable', rowCount }`.
+
+### What a rollback can't undo
+Row changes always roll back, but probes do fire triggers. So sequence values advance, and triggers calling extensions such as `dblink` or `http` can have outside effects. A trigger taking a session-level advisory lock keeps it after the rollback. Unfiltered updates and deletes add load for up to 5 seconds per statement. The CLI says so in its banner and in the production guard.
+
+### Tests
+`packages/engine/test/rollback.test.ts` runs when `REDROW_TEST_DB_URL` is set, and the test run says clearly when it is skipped. It inserts a sentinel row, then asserts from a fresh connection that the row is absent and `current_user` and the JWT claims are back to their defaults, including after a probe that throws.
 
 ---
 
 ## 4. Scoring
 
 ```
-penalty = Σ weight(severity)   critical 25 · high 10 · medium 4 · low 1
+penalty = Σ weight(severity)   critical 25 · high 10 · medium 4 · low 1 · info 0
 score   = max(0, 100 − penalty)
 grade   = A ≥ 90 · B ≥ 75 · C ≥ 60 · D ≥ 40 · F < 40
 ```
 Cap low-severity penalties at 10 total so perf hints never dominate. Any critical → grade can be at most D.
 
-## 5. ScanResult (JSON report shape — also what `--upload` sends)
+### Declared exposure (`publicTables`)
+Tables the project means to expose, such as HQ's public board, are listed in `publicTables`. A bare name means the `public` schema, so it can't reach `private.users` by accident; use `schema.table` for anything else. A finding on such a table becomes **`info`**, "declared exposure": it stays in the report, scores nothing and never fails a scan. The CLI always says on stderr which file declared which tables.
+
+**This covers anon reads and nothing else.** Only these findings qualify:
+
+| Rule | Qualifies when |
+|---|---|
+| RR001, RR101 | always, subject to the check below |
+| RR003 | the policy is `FOR SELECT` and applies to `anon` or `public`, and the finding came from the catalog rather than a signed-in user's probe |
+
+And **no finding on the table qualifies if the catalog shows a way to write**. This reads no probe results, because write probes don't run under `--read-only` and can come back inconclusive:
+
+| RLS | Write exposure means |
+|---|---|
+| off | `anon` or `authenticated` holds an INSERT, UPDATE or DELETE grant, which then works on every row |
+| on | a permissive INSERT, UPDATE, DELETE or ALL policy applies to `anon` or `public`. Grants don't count here, because Supabase grants them by default and RLS decides |
+
+Everything else keeps its severity, including RR102 (a signed-in user reading others' rows) and every write finding.
+
+## 5. Results
+
+`ScanResult` is the engine's return value. **`Report`, from `toReport()`, is the public JSON contract**: what `redrow scan --json` prints, and what H5 ingests and H6 renders. Bump `version` for any breaking change.
+
+```ts
+interface Report {
+  version: 1
+  scannedAt: string
+  database: { host: string; name: string; schemas: string[] }  // no credentials or user names, ever
+  findings: ReportFinding[]                                    // most severe first, then rule id, then table
+  summary: {
+    total: number               // findings that count against the score; excludes info
+    bySeverity: { critical: number; high: number; medium: number; low: number; info: number }
+    score: number
+    grade: 'A'|'B'|'C'|'D'|'F'
+    tablesScanned: number
+    probesRun: number
+    durationMs: number
+    probes: ProbeResult[]       // every probe, including denied ones: the leak matrix. Counts only
+    inconclusive: number        // probes that proved nothing either way
+    warnings: string[]          // reasons this report may understate the leaks
+  }
+}
+
+interface ReportFinding {
+  id: string                    // rule id, such as 'RR102'
+  severity: 'critical'|'high'|'medium'|'low'|'info'
+  table: string | null          // null for schema-level objects such as functions
+  policy: string | null
+  probe: string | null          // 'actor:action', such as 'user_a:select_others'; null for catalog findings
+  description: string           // what a caller could actually do
+  evidence:
+    | { kind: 'probe'; schema: string; actor: string; action: string; outcome: string; rowCount: number | null }
+    | { kind: 'catalog'; schema: string }
+  remediation: string
+}
+```
+Actor ids stay out of the report on purpose: they are real user ids, and the report may be shared.
 
 ```ts
 interface ScanResult {
   engineVersion: string; startedAt: string; durationMs: number
-  target: { host: string /* masked */, schemas: string[] }
+  target: { host: string; database: string; schemas: string[] }  // never credentials
   score: number; grade: 'A'|'B'|'C'|'D'|'F'
-  counts: { critical: number; high: number; medium: number; low: number }
-  tables: { schema: string; table: string; rlsEnabled: boolean; ownerColumn?: string; totalRows: number; sensitive: string[] }[]
+  counts: { critical: number; high: number; medium: number; low: number; info: number }
+  tables: { schema: string; table: string; rlsEnabled: boolean; ownerColumn?: string; totalRows: number | null; sensitive: string[] }[]
   findings: Finding[]
   probes: ProbeResult[]
   actors: { userA: string; userB: string } // uuids only
+  warnings: string[]
 }
 ```
+
+### CLI behaviour
+- Exit codes: `0` no findings at or above `--severity` (default `low`), `1` findings, `2` could not run, or every probe was inconclusive. `info` never fails a scan and isn't a `--severity` level.
+- `--json` writes only JSON to stdout. The banner and warnings go to stderr.
+- Production guard: refuses a host that isn't local when the database name doesn't contain `test`, `demo` or `staging`, unless `-y` (`--i-know-what-im-doing`) is passed or the host **exactly** matches an entry in `allowHosts` in `redrow.config.json`. Wildcards are rejected. Supabase databases are always named `postgres`, so a Supabase scan needs one of the two. An entry matches the host alone, not the database or login. **Every project in a region shares its pooler host**, so listing a pooler host waives the guard for all of them.
+- The driver gets explicit connection fields, never the url, so the guard judges what actually gets connected to. Query parameters other than `sslmode` and `pgbouncer` are refused, because the driver lets them override the host and database. Remote connections use TLS: `sslmode=disable` is refused, and `prefer` and `allow` become `require`.
 
 ## 6. Fix generation (`redrow fix`)
 
