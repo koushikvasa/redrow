@@ -332,6 +332,63 @@ export async function runTableProbes(
   return results
 }
 
+/** How many of other users' rows a caller can see, per owner. Counts and owner ids only. */
+async function othersByOwner(
+  sql: Sql,
+  t: TableInfo,
+  owner: string,
+  role: ProbeRole,
+  sub: string | undefined,
+  userA: string,
+  readOnly: boolean,
+): Promise<ReadonlyMap<string, number> | undefined> {
+  try {
+    const rows = await asCaller(
+      sql,
+      role,
+      sub,
+      (tx) => tx<OwnerCount[]>`
+        select coalesce(${tx(owner)}::text, '') as owner, count(*)::int as n
+        from ${tx(t.schema)}.${tx(t.table)}
+        where ${tx(owner)} is distinct from ${userA}
+        group by 1`,
+      readOnly,
+    )
+    return new Map(rows.map((row) => [row.owner, row.n]))
+  } catch (error: unknown) {
+    if (sqlStateOf(error) === undefined) throw error
+    return undefined
+  }
+}
+
+/**
+ * True when, for every owner, the user sees no more of that owner's rows than anon does.
+ * Comparing one total can't work: anon seeing 3 of C's public rows says nothing about the
+ * user seeing 1 of B's private rows.
+ */
+export const coversEveryOwner = (
+  seenByUser: ReadonlyMap<string, number>,
+  seenByAnon: ReadonlyMap<string, number>,
+): boolean => [...seenByUser].every(([owner, n]) => n <= (seenByAnon.get(owner) ?? 0))
+
+/**
+ * Whether a signed-in user sees nothing of other users' rows beyond what anon already can.
+ * An unclear answer is `false`, which keeps the finding. The breakdown stays in here, so
+ * these owner ids never reach the report.
+ */
+export async function seesNoMoreThanAnon(
+  sql: Sql,
+  t: TableInfo,
+  actors: Actors,
+  readOnly: boolean,
+): Promise<boolean> {
+  const owner = t.ownerColumn
+  if (owner === undefined || !isProbeable(t)) return false
+  const seenByUser = await othersByOwner(sql, t, owner, 'authenticated', actors.userA, actors.userA, readOnly)
+  const seenByAnon = await othersByOwner(sql, t, owner, 'anon', undefined, actors.userA, readOnly)
+  return seenByUser !== undefined && seenByAnon !== undefined && coversEveryOwner(seenByUser, seenByAnon)
+}
+
 /** Row total and top owners, as the connecting role. Counts and owner ids only. */
 export async function gatherTableStats(sql: Sql, t: TableInfo, readOnly = false): Promise<TableStats> {
   if (!isProbeable(t)) return { total: null, owners: [] }

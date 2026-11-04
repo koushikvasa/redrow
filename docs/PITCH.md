@@ -31,12 +31,13 @@ Supabase Security Advisor is a static linter: it tells you RLS is **on**. A poli
 2. **(0:25) Attack.** Run `npx redrow scan --db $CARENOTE`. Terminal turns red: score 0/F. "Logged in as Dr. Ana, I can read **all 120 patients**, and delete Dr. Ben's notes. Anonymous visitors can read every clinician's email."
 3. **(1:05) Matrix.** Dashboard: leak matrix (anon / Dr. Ana / Dr. Ben × tables × read/insert/update/delete). Red cells with row counts. Invoices row is green — "the one table the AI got right."
 4. **(1:35) Fix.** `npx redrow fix --apply`. Show the generated migration, every block labeled with the rule it fixes. Rescan → 100/A. Dial animates.
-5. **(2:10) Safety.** "Every attack runs inside a transaction that's rolled back. We record counts and ids, never row contents. Safe to run on prod."
+5. **(2:10) Safety.** "Every attack runs inside a transaction that's rolled back. We record counts and ids, never row contents. Nothing persists, and we only ever record counts."
 6. **(2:30) Scale + data quality.** "And our own backend? Red Row scans it every minute: 100. Here's our Sodabase score." Show both.
 7. **(2:50) Close.** "`npx redrow scan`. Open source today. Run it on your project before someone else does."
 
 ## Likely judge questions
 - **"Isn't this Security Advisor?"** Advisor = static config lint. We prove exploitability with real counts, catch semantic leaks (`using (true)`, missing ownership, missing `with check`) that lint clean, and generate the fix.
-- **"Is it safe on production?"** Every probe is inside `begin … rollback`, with 5s statement timeout and 1s lock timeout. `--read-only` skips writes entirely. We never select row contents.
+- **"Is it safe?"** Nothing persists, and we only ever record counts. Every probe is inside `begin … rollback`, with 5s statement timeout and 1s lock timeout. `--read-only` skips writes entirely. We never select row contents.
+- **"Where should I run it?"** Run it against a staging project or a Supabase branch; the guard refuses production-looking targets by default, and triggers/sequences are the documented exceptions to rollback.
 - **"What about complex policies (joins, teams)?"** Probes are behavioral, so they work regardless of policy complexity; ownership detection uses FKs to `auth.users` with config override for team-based schemas.
 - **"Why the Sodabase angle?"** Scan history is data we want to trust: insert-only, constrained, continuously fresh.

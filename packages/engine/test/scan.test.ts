@@ -170,6 +170,55 @@ describe('scan', () => {
     expect(result.score).toBeLessThan(100)
   })
 
+  describe('RR102 on a declared table', () => {
+    const owner = '00000000-0000-4000-8000-00000000000a'
+    const other = '00000000-0000-4000-8000-00000000000b'
+    const PER_OWNER_QUERY = 'coalesce("user_id"::text'
+    /** A table where the signed-in user reads other users' rows, and anon's view is given per owner. */
+    const database = (anonSees: object[]) => {
+      let role = 'none'
+      return fakeSql({
+        respond: (text) => {
+          if (text.startsWith('set local role')) role = text
+          if (text.includes(PER_OWNER_QUERY)) {
+            return role.endsWith('anon') ? anonSees : [{ owner: other, n: 1 }]
+          }
+          if (text.includes('is distinct from') && role.endsWith('authenticated')) return [{ n: 1 }]
+          return undefined
+        },
+        rowsByQuery: {
+          'c.relrowsecurity': [{ ...openTable, rls_enabled: true }],
+          'format_type(': [{ table_oid: 1, attnum: 1, column: 'user_id', type: 'uuid', writable: true }],
+        },
+      })
+    }
+    const options = { readOnly: true, publicTables: ['profiles'], actors: { userA: owner, userB: other } }
+    const rr102 = (result: Awaited<ReturnType<typeof scan>>) => result.findings.filter((f) => f.ruleId === 'RR102')
+
+    it('goes away when anon can see the same owner\'s rows', async () => {
+      expect(rr102(await scan(database([{ owner: other, n: 1 }]).client, options))).toEqual([])
+    })
+
+    it('stays when anon sees as many rows, but another owner\'s', async () => {
+      const result = await scan(database([{ owner: 'someone-else', n: 3 }]).client, options)
+      expect(rr102(result).map((f) => f.severity)).toEqual(['critical'])
+    })
+
+    it('stays, and is never compared, with anon switched off', async () => {
+      const sql = database([{ owner: other, n: 1 }])
+      const result = await scan(sql.client, { ...options, roles: { anon: false } })
+      expect(rr102(result)).toHaveLength(1)
+      expect(sql.queries.some((q) => q.text.includes(PER_OWNER_QUERY))).toBe(false)
+    })
+
+    it('stays, and is never compared, on a table that is not declared', async () => {
+      const sql = database([{ owner: other, n: 1 }])
+      const result = await scan(sql.client, { ...options, publicTables: [] })
+      expect(rr102(result)).toHaveLength(1)
+      expect(sql.queries.some((q) => q.text.includes(PER_OWNER_QUERY))).toBe(false)
+    })
+  })
+
   it('reports the phases in order', async () => {
     const phases: string[] = []
     await scan(fakeSql().client, { onPhase: (phase) => phases.push(phase) })

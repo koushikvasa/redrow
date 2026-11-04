@@ -273,7 +273,16 @@ And **no finding on the table qualifies if the catalog shows a way to write**. T
 | off | `anon` or `authenticated` holds an INSERT, UPDATE or DELETE grant, which then works on every row |
 | on | a permissive INSERT, UPDATE, DELETE or ALL policy applies to `anon` or `public`. Grants don't count here, because Supabase grants them by default and RLS decides |
 
-Everything else keeps its severity, including RR102 (a signed-in user reading others' rows) and every write finding.
+**RR102 is dropped, not downgraded, when user A sees nothing beyond what anon can.** The check runs only when an RR102 on a declared table depends on it, once as A and once as anon, each in its own rolled-back transaction:
+```sql
+select coalesce(${owner}::text, '') as owner, count(*)::int as n from ${table}
+where ${owner} is distinct from ${A} group by 1;
+```
+RR102 goes away only if, **for every owner**, A's count is at or below anon's. One total can't answer this: anon seeing 3 of C's public rows says nothing about A seeing 1 of B's private rows, and that real leak would otherwise score 100. If A sees more of any owner's rows, if either count is refused or times out, if anon is switched off, or if the write check above fails, RR102 still counts. The per-owner counts stay inside the engine, so these ids never reach the report.
+
+**Known limit:** counts can't tell different rows of the *same* owner apart. If B has one public and one private row, and each role's policy shows it a different one, the counts match and RR102 is dropped. This needs anon and authenticated to have separate policies where the authenticated one hides public rows. Closing it would mean reading row addresses, which the "counts and owner ids only" rule doesn't allow. Row counts also say nothing about columns, so column-level grants that differ by role aren't compared.
+
+Everything else keeps its severity, including every write finding.
 
 ## 5. Results
 
@@ -331,10 +340,10 @@ interface ScanResult {
 ### CLI behaviour
 - Exit codes: `0` no findings at or above `--severity` (default `low`), `1` findings, `2` could not run, or every probe was inconclusive. `info` never fails a scan and isn't a `--severity` level.
 - `--json` writes only JSON to stdout. The banner and warnings go to stderr.
-- Production guard: refuses a host that isn't local when the database name doesn't contain `test`, `demo` or `staging`, unless `-y` (`--i-know-what-im-doing`) is passed or the target **exactly** matches an entry in `allowHosts` in `redrow.config.json`. An entry is a host, or `host/login`. Wildcards are rejected. Supabase databases are always named `postgres`, so a Supabase scan needs one of the two. **Every project in a region shares its pooler host and differs only by login**, so use `host/login` there: a bare pooler host waives the guard for all of them.
+- Production guard: refuses a host that isn't local when the database name doesn't contain `test`, `demo` or `staging`, unless `-y` (`--i-know-what-im-doing`) is passed or the target **exactly** matches an entry in `allowHosts` in `redrow.config.json`. An entry is a host, or `host/login`. Wildcards are rejected. Supabase databases are always named `postgres`, so a Supabase scan needs one of the two. **Every project in a region shares its pooler host and differs only by login**, so use `host/login` there: a bare pooler host waives the guard for all of them, and any bare entry prints a warning on stderr.
 - The driver gets explicit connection fields, never the url, so the guard judges what actually gets connected to. Query parameters other than `sslmode` and `pgbouncer` are refused, because the driver lets them override the host and database. Remote connections use TLS: `sslmode=disable` is refused, and `prefer` and `allow` become `require`.
 
 ## 6. Fix generation (`redrow fix`)
 
 Input: `report.json` + catalog text for affected tables (columns, existing policies). Never row data.
-Prompt Claude to return **one SQL migration** that: enables RLS where missing, replaces leaky policies with owner-scoped ones using `(select auth.uid())`, adds `with check`, sets `security_invoker = true` on views, revokes `execute` on risky SECURITY DEFINER functions from `anon`, adds missing indexes. Wrap in `begin; … commit;`, comment each block with the rule ID it fixes. Write to `redrow-fix-<timestamp>.sql`. Only apply with `--apply` (then rescan automatically).
+Prompt Claude to return **one SQL migration** that: enables RLS where missing, replaces leaky policies with owner-scoped ones using `(select auth.uid())`, adds `with check`, sets `security_invoker = true` on views, revokes `execute` on risky SECURITY DEFINER functions from `anon, authenticated, public`, because they skip RLS and a signed-in user who could still call one would bypass the new policies, adds missing indexes. Wrap in `begin; … commit;`, comment each block with the rule ID it fixes. Write to `redrow-fix-<timestamp>.sql`. Only apply with `--apply` (then rescan automatically).

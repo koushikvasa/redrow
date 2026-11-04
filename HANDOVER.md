@@ -67,7 +67,7 @@ Task H3: build demo-target/.
 3. demo-target/scripts/apply.mjs <file.sql>: runs a SQL file against DEMO_DB_URL with the postgres driver (so Windows users don't need psql).
 4. Root scripts: `npm run demo:reset` (reset.sql → seed), `npm run demo:fix-reference` (fixed.sql).
 
-Done when: demo:reset then `npm run scan -- --db $DEMO_DB_URL` scores ≤ 30 with RR001, RR003/RR102, RR004/RR103, RR104, RR105, RR006, RR007 present and invoices clean; demo:fix-reference then rescan ≥ 95.
+Done when: demo:reset then `npm run scan -- --db $DEMO_DB_URL` scores ≤ 30 with RR001, RR003/RR102, RR004/RR103, RR104, RR105, RR006, RR007 present and invoices clean; demo:fix-reference then rescan = 100/A.
 ```
 
 ---
@@ -80,7 +80,7 @@ Task H4:
 2. `redrow fix --from report.json [--db url] [--apply] [--out file.sql]`:
    - Builds the prompt from findings + catalog text (columns, policies) for affected tables ONLY. Never row data.
    - Calls Anthropic (@anthropic-ai/sdk, model REDROW_MODEL default claude-sonnet-5-5, key ANTHROPIC_API_KEY). Without a key, print a clear message and fall back to rule-based templates for RR001/RR003/RR004/RR005/RR006/RR007/RR008/RR009.
-   - Writes redrow-fix-<timestamp>.sql wrapped in begin/commit, each block commented with its rule ID.
+   - Writes redrow-fix-<timestamp>.sql wrapped in begin/commit, each block commented with its rule ID. For RR007 it must revoke execute from anon, authenticated, public, as demo-target/supabase/fixed.sql does.
    - --apply runs it in a transaction, then automatically rescans and prints before → after score.
 
 Done when: on CareNote, `redrow fix --from report.json --apply` brings the score to ≥ 95.

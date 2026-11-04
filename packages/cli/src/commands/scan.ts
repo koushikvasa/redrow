@@ -67,6 +67,16 @@ function announceDeclaredTables(flags: ScanFlags, config: RedrowConfig, io: CliI
   io.stderr(`Declared public by ${source}: ${names}. Anon reads of these score nothing.\n`)
 }
 
+/** Every Supabase project in a region shares a pooler host, so a bare entry opens up all of them. */
+function warnAboutBareHosts(config: RedrowConfig, io: CliIO): void {
+  for (const entry of config.allowHosts.filter((allowed) => !allowed.includes('/'))) {
+    io.stderr(
+      `Warning: allowHosts lists the bare host ${sanitizeForTerminal(entry)}, which covers every login on it. ` +
+        'Use host/login to name one project.\n',
+    )
+  }
+}
+
 /** A config file can open up a host, so that is always said out loud too. */
 function announceTarget(target: ConnectionTarget, config: RedrowConfig, io: CliIO): void {
   if (!needsProductionOverride(target)) return
@@ -116,6 +126,7 @@ export async function runScan(flags: ScanFlags, io: CliIO, deps: CliDeps): Promi
   assertAllowedTarget(target, flags.iKnowWhatImDoing ?? false, config.allowHosts)
   // Status goes to stderr, so stdout stays valid JSON under --json.
   io.stderr(`${SAFETY_BANNER}\n${SIDE_EFFECTS_NOTE}\n`)
+  warnAboutBareHosts(config, io)
   announceTarget(target, config, io)
   announceDeclaredTables(flags, config, io)
   const result = await runProbes(flags, config, target, io, deps)

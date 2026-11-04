@@ -1,10 +1,10 @@
 import type { Sql } from 'postgres'
 import { chooseActors, resolveActors } from './actors'
 import { mapConcurrent } from './concurrency'
-import { applyDeclaredExposure } from './declared'
+import { applyDeclaredExposure, isDeclared } from './declared'
 import { findingsFromProbes, mergeFindings, tableKey } from './dynamic'
 import { introspect } from './introspect'
-import { gatherTableStats, isProbeable, runTableProbes } from './probes'
+import { gatherTableStats, isProbeable, runTableProbes, seesNoMoreThanAnon } from './probes'
 import { scoreFindings } from './score'
 import { runStaticRules } from './static'
 import type {
@@ -85,6 +85,7 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
     opts.actors ?? (await resolveActors(sql, chooseActors(stats.map((s) => s.owners))))
 
   opts.onPhase?.('probes')
+  const publicTables = opts.publicTables ?? []
   const settings = {
     readOnly: opts.readOnly ?? false,
     anon: opts.roles?.anon ?? true,
@@ -98,11 +99,22 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
   const totals = new Map(
     introspection.tables.map((t, index) => [tableKey(t.schema, t.table), totalsFor(index)]),
   )
-  const findings = applyDeclaredExposure(
-    mergeFindings(staticFindings, findingsFromProbes(probes, { introspection, totals })),
-    introspection,
-    opts.publicTables ?? [],
+  const merged = mergeFindings(staticFindings, findingsFromProbes(probes, { introspection, totals }))
+  // Only asked when an RR102 on a declared table depends on the answer, and never with anon switched off.
+  const toCompare = introspection.tables.filter(
+    (t) =>
+      settings.anon &&
+      isDeclared(t, publicTables) &&
+      merged.some((f) => f.ruleId === 'RR102' && f.schema === t.schema && f.table === t.table),
   )
+  const compared = await mapConcurrent(toCompare, TABLE_CONCURRENCY, async (t) => ({
+    table: t,
+    noWider: await seesNoMoreThanAnon(sql, t, actors, settings.readOnly),
+  }))
+  const noWiderThanAnon = new Set(
+    compared.filter((c) => c.noWider).map((c) => tableKey(c.table.schema, c.table.table)),
+  )
+  const findings = applyDeclaredExposure(merged, introspection, publicTables, noWiderThanAnon)
   return {
     engineVersion: ENGINE_VERSION,
     startedAt: new Date(startedAtMs).toISOString(),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { gatherTableStats, runTableProbes } from '../src/probes'
+import { coversEveryOwner, gatherTableStats, runTableProbes, seesNoMoreThanAnon } from '../src/probes'
 import { ImpersonationError, impersonate, inRolledBackTx } from '../src/tx'
 import type { Actors, ProbeResult } from '../src/types'
 import { fakeSql, serverError, type FakeSql } from './fake-sql'
@@ -489,6 +489,95 @@ describe('runTableProbes', () => {
       expect(sql.queries.some((q) => q.text.endsWith('default values'))).toBe(true)
       expect(find(probes, 'anon', 'insert_other')).toMatchObject({ outcome: 'allowed', rowCount: 1 })
     })
+  })
+})
+
+describe('coversEveryOwner', () => {
+  const counts = (entries: Record<string, number>): ReadonlyMap<string, number> => new Map(Object.entries(entries))
+
+  it.each([
+    ['the same rows', { b: 1 }, { b: 1 }, true],
+    ['fewer of an owner anon can also see', { b: 1 }, { b: 3 }, true],
+    ['nothing at all', {}, { c: 3 }, true],
+    ['both empty', {}, {}, true],
+    ["another owner's rows, even though the totals look fine: the real leak", { b: 1 }, { c: 3 }, false],
+    ['the same total split differently', { b: 1, c: 1 }, { c: 2 }, false],
+    ['more of an owner than anon sees', { b: 2 }, { b: 1 }, false],
+    ['anything when anon sees nothing', { b: 1 }, {}, false],
+    ['one owner within limits and one beyond', { b: 1, c: 5 }, { b: 1, c: 1 }, false],
+  ])('a user seeing %s', (_label, user, anon, expected) => {
+    expect(coversEveryOwner(counts(user), counts(anon))).toBe(expected)
+  })
+
+  it('KNOWN LIMIT: cannot tell different rows of the same owner apart with counts alone', () => {
+    // B has one public and one private row, and each role sees a different one. Documented in ENGINE.md.
+    expect(coversEveryOwner(counts({ b: 1 }), counts({ b: 1 }))).toBe(true)
+  })
+})
+
+describe('seesNoMoreThanAnon', () => {
+  /** Answers the per-owner query according to which role is active. */
+  const byRole = (seen: { anon: object[] | Error; authenticated: object[] | Error }): FakeSql => {
+    let role: 'anon' | 'authenticated' = 'anon'
+    return fakeSql({
+      respond: (text) => {
+        if (text === 'set local role anon') role = 'anon'
+        if (text === 'set local role authenticated') role = 'authenticated'
+        return text.includes('group by') ? seen[role] : undefined
+      },
+    })
+  }
+
+  it('is true when every owner the user sees is covered by anon', async () => {
+    const sql = byRole({ anon: [{ owner: 'b', n: 2 }], authenticated: [{ owner: 'b', n: 1 }] })
+    expect(await seesNoMoreThanAnon(sql.client, owned, ACTORS, false)).toBe(true)
+  })
+
+  it('is false when the user sees a different owner, even with a lower total', async () => {
+    const sql = byRole({ anon: [{ owner: 'c', n: 3 }], authenticated: [{ owner: 'b', n: 1 }] })
+    expect(await seesNoMoreThanAnon(sql.client, owned, ACTORS, false)).toBe(false)
+  })
+
+  it.each(['anon', 'authenticated'] as const)('is false when the %s count is refused, keeping the finding', async (role) => {
+    const other = role === 'anon' ? 'authenticated' : 'anon'
+    const sql = byRole({ [role]: serverError('42501'), [other]: [] } as Parameters<typeof byRole>[0])
+    expect(await seesNoMoreThanAnon(sql.client, owned, ACTORS, false)).toBe(false)
+  })
+
+  it('is false on a timeout, keeping the finding', async () => {
+    const sql = byRole({ anon: serverError('57014'), authenticated: [] })
+    expect(await seesNoMoreThanAnon(sql.client, owned, ACTORS, false)).toBe(false)
+  })
+
+  it('lets a lost connection fail the scan', async () => {
+    const lost = Object.assign(new Error('gone'), { code: 'CONNECTION_ENDED' })
+    await expect(seesNoMoreThanAnon(fakeSql({ failWith: lost }).client, owned, ACTORS, false)).rejects.toBe(lost)
+  })
+
+  it('is false, without any SQL, for a table it cannot compare', async () => {
+    const sql = fakeSql()
+    expect(await seesNoMoreThanAnon(sql.client, unowned, ACTORS, false)).toBe(false)
+    expect(await seesNoMoreThanAnon(sql.client, table('a.b', { ownerColumn: 'c' }), ACTORS, false)).toBe(false)
+    expect(sql.queries).toEqual([])
+  })
+
+  it('reads counts and owner ids only, in a read-only transaction under --read-only, and commits nothing', async () => {
+    const sql = byRole({ anon: [], authenticated: [] })
+    await seesNoMoreThanAnon(sql.client, owned, ACTORS, true)
+    expect(sql.transactions.committed).toBe(0)
+    expect(sql.transactions.modes.every((mode) => mode.endsWith('read only'))).toBe(true)
+    const counted = sql.queries.filter((q) => q.text.includes('group by'))
+    expect(counted).toHaveLength(2)
+    for (const query of counted) {
+      expect(query.text).toMatch(/select coalesce\("user_id"::text, ''\) as owner, count\(\*\)::int as n/)
+      expect(query.text).not.toMatch(/select\s+\*/i)
+    }
+  })
+
+  it('never puts owner ids in a probe result, so they stay out of the report', async () => {
+    const sql = byRole({ anon: [{ owner: 'secret-owner', n: 1 }], authenticated: [] })
+    const probes = await runTableProbes(sql.client, owned, ACTORS, { readOnly: true, anon: true, authenticated: true })
+    expect(JSON.stringify(probes)).not.toContain('secret-owner')
   })
 })
 

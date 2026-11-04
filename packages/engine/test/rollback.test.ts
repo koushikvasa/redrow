@@ -14,6 +14,7 @@ import {
 
 const A = '00000000-0000-4000-8000-00000000000a'
 const B = '00000000-0000-4000-8000-00000000000b'
+const C = '00000000-0000-4000-8000-00000000000c'
 const SCHEMA = 'redrow_rollback_it'
 const TEMPORARY_ERROR = 'deliberate failure inside a probe'
 
@@ -52,8 +53,49 @@ const FIXTURE = `
     using (true) with check (user_id = (select auth.uid()));
   create index on ${SCHEMA}.takeover (user_id);
 
+  -- A public board: anon and users alike see public rows, and owners also see their own.
+  create table ${SCHEMA}.board (id serial primary key, user_id uuid not null, is_public boolean not null);
+  alter table ${SCHEMA}.board enable row level security;
+  create policy r on ${SCHEMA}.board for select to anon, authenticated
+    using (is_public or user_id = (select auth.uid()));
+  create index on ${SCHEMA}.board (user_id);
+
+  -- The same board, except any signed-in user can also read everyone's private rows.
+  create table ${SCHEMA}.leaky_board (id serial primary key, user_id uuid not null, is_public boolean not null);
+  alter table ${SCHEMA}.leaky_board enable row level security;
+  create policy a on ${SCHEMA}.leaky_board for select to anon using (is_public);
+  create policy u on ${SCHEMA}.leaky_board for select to authenticated using (true);
+  create index on ${SCHEMA}.leaky_board (user_id);
+
+  -- Separate policies per role, and the signed-in one is wrong: it shows other users' private
+  -- rows but not public ones. So the two roles see different rows, of different owners.
+  create table ${SCHEMA}.disjoint_equal (id serial primary key, user_id uuid not null, is_public boolean not null);
+  alter table ${SCHEMA}.disjoint_equal enable row level security;
+  create policy a on ${SCHEMA}.disjoint_equal for select to anon using (is_public);
+  create policy u on ${SCHEMA}.disjoint_equal for select to authenticated
+    using (user_id = (select auth.uid()) or not is_public);
+  create index on ${SCHEMA}.disjoint_equal (user_id);
+
+  create table ${SCHEMA}.disjoint_less (like ${SCHEMA}.disjoint_equal including all);
+  alter table ${SCHEMA}.disjoint_less enable row level security;
+  create policy a on ${SCHEMA}.disjoint_less for select to anon using (is_public);
+  create policy u on ${SCHEMA}.disjoint_less for select to authenticated
+    using (user_id = (select auth.uid()) or not is_public);
+
   grant all on all tables in schema ${SCHEMA} to anon, authenticated;
   grant all on all sequences in schema ${SCHEMA} to anon, authenticated;
+
+  -- A owns the public rows here, so a plain total can't tell these two tables apart.
+  insert into ${SCHEMA}.board (user_id, is_public) values
+    ('${A}', true), ('${A}', true), ('${B}', true), ('${B}', false);
+  insert into ${SCHEMA}.leaky_board (user_id, is_public) values
+    ('${A}', true), ('${A}', true), ('${B}', true), ('${B}', false);
+
+  -- A sees 1 of B's private rows. Anon sees 1 of C's public rows here, and 3 of them below.
+  insert into ${SCHEMA}.disjoint_equal (user_id, is_public) values
+    ('${A}', true), ('${C}', true), ('${B}', false);
+  insert into ${SCHEMA}.disjoint_less (user_id, is_public) values
+    ('${A}', true), ('${C}', true), ('${C}', true), ('${C}', true), ('${B}', false);
 
   insert into ${SCHEMA}.takeover (user_id) select '${A}' from generate_series(1, 2);
   insert into ${SCHEMA}.takeover (user_id) select '${B}' from generate_series(1, 3);
@@ -205,6 +247,45 @@ describe.skipIf(TEST_DB_URL === undefined)('rollback safety, against a real data
         await client.end()
       }
     }, 30000)
+
+    describe.each([
+      ['with writes allowed', false],
+      ['under --read-only', true],
+    ])('RR102 on a declared table, %s', (_label, readOnly) => {
+      const declaredScan = async () => {
+        const client = connectToTestDb(5)
+        try {
+          return await scan(client, {
+            schemas: [SCHEMA],
+            readOnly,
+            publicTables: ['board', 'leaky_board', 'disjoint_equal', 'disjoint_less'].map((t) => `${SCHEMA}.${t}`),
+            actors: { userA: A, userB: B },
+          })
+        } finally {
+          await client.end()
+        }
+      }
+
+      it('goes away when A sees nothing beyond what anon can, and stays for every real leak', async () => {
+        const result = await declaredScan()
+        const onTable = (name: string) => result.findings.filter((f) => f.table === name)
+        const rr102 = (name: string) => onTable(name).find((f) => f.ruleId === 'RR102')
+
+        expect(onTable('board').map((f) => [f.ruleId, f.severity])).toEqual([['RR101', 'info']])
+
+        // A sees more of B's rows than anon does.
+        expect(rr102('leaky_board')).toMatchObject({ severity: 'critical', rowsExposed: 2 })
+
+        // Neither count is higher than anon's, yet A reads B's private row and anon only sees C's.
+        expect(rr102('disjoint_equal')).toMatchObject({ severity: 'critical', rowsExposed: 1 })
+        expect(rr102('disjoint_less')).toMatchObject({ severity: 'critical', rowsExposed: 1 })
+      }, 30000)
+
+      it('keeps owner ids out of the report', async () => {
+        const report = JSON.stringify(toReport(await declaredScan()))
+        for (const id of [A, B, C]) expect(report).not.toContain(id)
+      }, 30000)
+    })
 
     it('has the database itself refuse writes in a read-only transaction', async () => {
       await expect(

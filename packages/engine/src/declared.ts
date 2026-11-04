@@ -5,7 +5,7 @@ const ROLES_ANON_ACTS_AS: ReadonlySet<string> = new Set(['anon', 'public'])
 const REMEDIATION = 'None needed while this table is meant to be public. If it is not, remove it from publicTables.'
 
 /** A bare name means the public schema only, so it can't reach `private.users` by accident. */
-const isDeclared = (table: TableInfo, publicTables: readonly string[]): boolean =>
+export const isDeclared = (table: TableInfo, publicTables: readonly string[]): boolean =>
   publicTables.includes(`${table.schema}.${table.table}`) ||
   (table.schema === 'public' && publicTables.includes(table.table))
 
@@ -53,25 +53,32 @@ const withoutSensitiveNote = (detail: string): string => detail.replace(/ Sensit
 /**
  * Tables the project means to expose, listed in `publicTables` by name or `schema.table`.
  * Anon reading one is reported at `info`, which scores nothing. It stays in the report, so
- * the exposure is declared rather than hidden. A table anyone can write to gets no such
- * treatment, even for its reads.
+ * the exposure is declared rather than hidden. RR102 goes away on a table in
+ * `noWiderThanAnon`, keyed by `schema.table`, where a signed-in user sees nothing beyond
+ * what RR101 already reports. A table anyone can write to gets no such treatment, even
+ * for its reads.
  */
 export function applyDeclaredExposure(
   findings: readonly Finding[],
   introspection: Introspection,
   publicTables: readonly string[],
+  noWiderThanAnon: ReadonlySet<string> = new Set(),
 ): Finding[] {
-  return findings.map((finding) => {
+  return findings.flatMap((finding) => {
     const table = introspection.tables.find((t) => t.schema === finding.schema && t.table === finding.table)
-    if (table === undefined || !isDeclared(table, publicTables)) return finding
+    if (table === undefined || !isDeclared(table, publicTables)) return [finding]
     const policies = policiesOn(table, introspection.policies)
-    if (hasWriteExposure(table, policies) || !isAnonRead(finding, policies)) return finding
-    return {
-      ...finding,
-      severity: 'info',
-      title: 'Declared exposure',
-      detail: `Declared exposure: ${withoutSensitiveNote(finding.detail)}${sensitiveNote(table)}`,
-      fixHint: REMEDIATION,
-    }
+    if (hasWriteExposure(table, policies)) return [finding]
+    if (finding.ruleId === 'RR102' && noWiderThanAnon.has(`${table.schema}.${table.table}`)) return []
+    if (!isAnonRead(finding, policies)) return [finding]
+    return [
+      {
+        ...finding,
+        severity: 'info',
+        title: 'Declared exposure',
+        detail: `Declared exposure: ${withoutSensitiveNote(finding.detail)}${sensitiveNote(table)}`,
+        fixHint: REMEDIATION,
+      },
+    ]
   })
 }

@@ -126,7 +126,7 @@ alter publication supabase_realtime add table public.scan_runs, public.findings;
 - **`sweep`** — called by `pg_cron` every minute. Connects to the CareNote demo DB (`DEMO_DB_URL` secret) and to HQ itself (`SUPABASE_DB_URL`), runs the engine (`_shared/engine`), inserts results. This is both a real feature ("continuous red-team") and what keeps HQ tables fresh for Sodabase. When scanning HQ, it passes `publicTables: ['projects']`, because the judges' board is meant to be readable by anon.
 
 ### Reaching 100 on the self-scan
-`projects_read` lets anon read `is_public` rows on purpose, so without a declaration RR101 fires and HQ scores 75. With `projects` in `publicTables`, that read is reported as declared exposure (`info`) and scores nothing. A declaration only covers anon's reads, so **all seeded projects need the same owner**: a signed-in user seeing a public project owned by someone else fires RR102, which still counts.
+`projects_read` lets anon read `is_public` rows on purpose, so without a declaration RR101 fires and HQ scores 75. With `projects` in `publicTables`, that read is reported as declared exposure (`info`) and scores nothing. A signed-in user seeing a public project owned by someone else adds nothing beyond that, so RR102 is ignored as long as, for every owner, they see no more of that owner's rows than anon does. If they see more, it still counts.
 
 ### Cron (`0002_cron.sql`)
 ```sql
@@ -142,7 +142,7 @@ $$);
 ```
 
 ### Seed (`hq/scripts/seed-history.mjs`)
-Creates the public demo projects ("CareNote demo", "Red Row HQ (self-scan)") and backfills **one scan every 15 minutes for 14 days** with realistic score drift (CareNote hovering 0–10, HQ 100). Both projects get the same owner. Uses explicit `created_at` values in the past. Inserts only.
+Creates the public demo projects ("CareNote demo", "Red Row HQ (self-scan)") and backfills **one scan every 15 minutes for 14 days** with realistic score drift (CareNote hovering 0–10, HQ 100). Uses explicit `created_at` values in the past. Inserts only.
 
 ---
 
@@ -252,4 +252,4 @@ Uses the service role key + `auth.admin.createUser` to create **3 clinicians** (
 Drops and recreates everything from `leaky.sql` (so the stage demo can be replayed). Seed rerun after.
 
 ### `demo-target/supabase/fixed.sql` (reference answer; what `redrow fix` should roughly produce)
-Enable RLS on profiles with owner policy; replace `using (true)` with `clinician_id = (select auth.uid())`; add `with check` on updates; ownership-scoped delete and insert; `alter view patient_summary set (security_invoker = true)`; `revoke execute on function search_patients(text) from anon, public`; indexes on `patients(clinician_id)`, `visit_notes(author_id)`, `appointments(clinician_id)`; wrap `auth.uid()` in `(select …)`. After applying, rescan must be ≥ 95.
+Enable RLS on profiles with owner policy; replace `using (true)` with `clinician_id = (select auth.uid())`; add `with check` on updates; ownership-scoped delete and insert; `alter view patient_summary set (security_invoker = true)`; `revoke execute on function search_patients(text) from anon, authenticated, public` (it skips RLS, so a clinician who could still call it would read every patient); indexes on `patients(clinician_id)`, `visit_notes(author_id)`, `appointments(clinician_id)`; wrap `auth.uid()` in `(select …)`. After applying, rescan must be 100/A.

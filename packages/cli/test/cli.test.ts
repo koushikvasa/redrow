@@ -99,13 +99,35 @@ describe('production guard', () => {
       return cwd
     }
 
-    it('skips the refusal for an exact match, and says why it did', async () => {
-      const io = captureIO({ cwd: configured(['db.example.com']) })
+    it('skips the refusal for an exact host/login match, and says why it did', async () => {
+      const io = captureIO({ cwd: configured(['db.example.com/u']) })
       const deps = fakeDeps()
       expect(await run(['scan', '--db', PROD_DB], io, deps)).toBe(0)
       expect(deps.calls.connect).toHaveLength(1)
       expect(io.err()).toContain('allowHosts')
       expect(io.err()).not.toMatch(/warning/i)
+    })
+
+    it('still honors a bare host, but warns on stderr that it covers every login there', async () => {
+      const io = captureIO({ cwd: configured(['db.example.com']) })
+      const deps = fakeDeps()
+      expect(await run(['scan', '--db', PROD_DB], io, deps)).toBe(0)
+      expect(deps.calls.connect).toHaveLength(1)
+      expect(io.err()).toMatch(/warning.*db\.example\.com.*every login/i)
+      expect(io.err()).toContain('host/login')
+      expect(io.out()).not.toContain('every login')
+    })
+
+    it('warns about a bare host even when scanning somewhere else, because the entry is the risk', async () => {
+      const io = captureIO({ cwd: configured(['other.example.com']) })
+      await run(['scan', '--db', LOCAL_DB], io, fakeDeps())
+      expect(io.err()).toMatch(/warning.*other\.example\.com/i)
+    })
+
+    it('stays quiet about host/login entries', async () => {
+      const io = captureIO({ cwd: configured(['other.example.com/u']) })
+      await run(['scan', '--db', LOCAL_DB], io, fakeDeps())
+      expect(io.err()).not.toMatch(/every login/i)
     })
 
     it('still refuses a different host', async () => {

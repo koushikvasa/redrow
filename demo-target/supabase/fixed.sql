@@ -40,8 +40,9 @@ create policy appointments_owner_insert on public.appointments
 -- RR006: the view now runs with the caller's rights, so RLS applies.
 alter view public.patient_summary set (security_invoker = true);
 
--- RR007: anon can no longer call the SECURITY DEFINER search.
-revoke execute on function public.search_patients(text) from anon, public;
+-- RR007: nobody on the API can call the SECURITY DEFINER search. It skips RLS, so a signed-in
+-- clinician who could still call it would read every patient despite the policies above.
+revoke execute on function public.search_patients(text) from anon, authenticated, public;
 
 -- RR009: an index on every owner column used by a policy.
 create index patients_clinician_id_idx on public.patients (clinician_id);

@@ -165,6 +165,48 @@ describe('applyDeclaredExposure', () => {
     })
   })
 
+  describe('RR102, a signed-in user reading other users\' rows', () => {
+    const userRead = finding('RR102', 't', {
+      rowsExposed: 1,
+      probe: { actor: 'user_a', action: 'select_others', outcome: 'allowed', rowCount: 1 },
+    })
+    const noWider = new Set(['public.t'])
+
+    it('is ignored when the user sees nothing beyond what anon can', () => {
+      expect(applyDeclaredExposure([userRead], withTable(), ['t'], noWider)).toEqual([])
+    })
+
+    it('still counts when the user sees more than anon does, or that is unknown', () => {
+      const [result] = applyDeclaredExposure([userRead], withTable(), ['t'], new Set())
+      expect(result?.severity).toBe('critical')
+      expect(result?.ruleId).toBe('RR102')
+    })
+
+    it('still counts on a table that is not declared', () => {
+      expect(applyDeclaredExposure([userRead], withTable(), ['other'], noWider)[0]?.severity).toBe('critical')
+    })
+
+    it('still counts when anon can also write there, since then nothing on the table qualifies', () => {
+      const input = introspection({
+        tables: [owned()],
+        policies: [policy('t', { name: 'w', cmd: 'DELETE', roles: ['anon'], qual: 'true' })],
+      })
+      expect(applyDeclaredExposure([userRead], input, ['t'], noWider)[0]?.severity).toBe('critical')
+    })
+
+    it('does not use an answer about a table of the same name in another schema', () => {
+      expect(applyDeclaredExposure([userRead], withTable(), ['t'], new Set(['app.t']))[0]?.severity).toBe('critical')
+    })
+
+    it('leaves the other findings on the table alone', () => {
+      const result = applyDeclaredExposure([anonRead(), userRead, finding('RR106')], withTable(), ['t'], noWider)
+      expect(result.map((f) => [f.ruleId, f.severity])).toEqual([
+        ['RR101', 'info'],
+        ['RR106', 'high'],
+      ])
+    })
+  })
+
   it('says so when the declared table has sensitive columns', () => {
     const t = owned({ sensitive: ['email', 'token'] })
     const [result] = applyDeclaredExposure([anonRead()], withTable(t), ['t'])
