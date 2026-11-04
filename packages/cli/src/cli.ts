@@ -17,6 +17,8 @@ export interface CliIO {
   readonly colorSupported: boolean
   /** Show a spinner on stderr. Only true on a real terminal. */
   readonly spinner: boolean
+  /** Asks a yes/no question. Missing when there is no terminal to ask on. */
+  readonly confirm?: (question: string) => Promise<boolean>
 }
 
 export interface CliDeps {
@@ -67,9 +69,9 @@ function buildProgram(io: CliIO, deps: CliDeps, setExitCode: (code: number) => v
     .requiredOption('--from <file>', 'the report, from redrow scan --json')
     .option('--db <url>', 'connection string (falls back to REDROW_DB_URL)')
     .option('--config <path>', 'config file (default: redrow.config.json, if present)')
-    .option('--apply', 'apply the migration and rescan')
+    .option('--apply', 'apply the migration and rescan, after asking')
     .option('--out <file>', 'where to write it (default: redrow-fix-<timestamp>.sql)')
-    .option('-y, --i-know-what-im-doing', "use a remote database whose name doesn't contain test, demo or staging")
+    .option('-y, --i-know-what-im-doing', "skip the --apply question, and allow a remote database whose name doesn't contain test, demo or staging")
     .action(async (flags: FixFlags) => {
       setExitCode(await runFix(flags, io, deps))
     })

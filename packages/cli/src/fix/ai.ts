@@ -15,6 +15,17 @@ const SUPPORTS_DEFAULT_FALLBACKS: ReadonlySet<string> = new Set([
   'claude-fable-5-1',
 ])
 
+export interface GeneratedText {
+  readonly text: string
+  /** The model that produced the text, which isn't the requested one after a fallback. */
+  readonly model: string
+  readonly usedFallback: boolean
+}
+
+interface UsageIterations {
+  readonly iterations?: readonly { readonly type: string }[] | null
+}
+
 /** A failure whose message is safe to print: it never carries the key or response bodies. */
 export class AiError extends Error {}
 
@@ -29,7 +40,7 @@ function explain(error: unknown): AiError {
 }
 
 /** Asks Claude for a migration. The result is untrusted text: the caller must parse it. */
-export async function generateWithClaude(prompt: FixPrompt, apiKey: string, model: string): Promise<string> {
+export async function generateWithClaude(prompt: FixPrompt, apiKey: string, model: string): Promise<GeneratedText> {
   const client = new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS })
   let response: Anthropic.Beta.BetaMessage
   try {
@@ -47,5 +58,10 @@ export async function generateWithClaude(prompt: FixPrompt, apiKey: string, mode
   }
   if (response.stop_reason === 'refusal') throw new AiError('the model declined this request')
   if (response.stop_reason === 'max_tokens') throw new AiError('the response was cut off at the token limit')
-  return response.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
+  const iterations = (response.usage as UsageIterations).iterations ?? []
+  return {
+    text: response.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n'),
+    model: response.model,
+    usedFallback: iterations.some((entry) => entry.type === 'fallback_message'),
+  }
 }

@@ -59,6 +59,7 @@ function fixDeps(options: {
   ai?: () => Promise<string>
   validate?: (statements: readonly string[]) => Promise<void>
   rescan?: ReturnType<typeof scanResult>
+  answeredBy?: string
 } = {}) {
   const base = fakeDeps(options.rescan ?? scanResult({ score: 100, grade: 'A' }))
   const calls = { validated: [] as string[][], applied: [] as string[][], aiCalls: 0, prompts: [] as string[], models: [] as string[] }
@@ -77,7 +78,8 @@ function fixDeps(options: {
         calls.aiCalls += 1
         calls.prompts.push(prompt.user)
         calls.models.push(model)
-        return options.ai === undefined ? VALID_AI_SQL : options.ai()
+        const text = options.ai === undefined ? VALID_AI_SQL : await options.ai()
+        return { text, model: options.answeredBy ?? model, usedFallback: options.answeredBy !== undefined }
       },
     },
     log: calls,
@@ -318,11 +320,95 @@ describe('redrow fix', () => {
     })
   })
 
+  describe('naming the model that answered', () => {
+    const env = { ANTHROPIC_API_KEY: 'key' }
+    const fileText = (cwd: string): string => readFileSync(join(cwd, sqlFile(cwd) as string), 'utf8')
+
+    it('names it in the migration header and the output', async () => {
+      const cwd = setup()
+      const io = captureIO({ cwd, env })
+      await run(['fix', '--from', 'report.json', '--db', DB], io, fixDeps())
+      expect(fileText(cwd).split('\n')[0]).toMatch(/^-- .*claude-sonnet-5-5/)
+      expect(fileText(cwd)).toMatch(/^begin;$/m)
+      expect(io.err()).toContain('claude-sonnet-5-5')
+    })
+
+    it('says so when a fallback model answered instead of the one requested', async () => {
+      const cwd = setup()
+      const io = captureIO({ cwd, env })
+      await run(['fix', '--from', 'report.json', '--db', DB], io, fixDeps({ answeredBy: 'claude-opus-4-8' }))
+      const header = fileText(cwd).split('\n')[0] as string
+      expect(header).toContain('claude-opus-4-8')
+      expect(header).toContain('claude-sonnet-5-5')
+      expect(io.err()).toMatch(/claude-sonnet-5-5 declined.*claude-opus-4-8/)
+    })
+
+    it('cannot have a line of SQL added through the model name', async () => {
+      const cwd = setup()
+      const io = captureIO({ cwd, env })
+      await run(['fix', '--from', 'report.json', '--db', DB], io, fixDeps({ answeredBy: 'x\ndrop table y;' }))
+      expect(fileText(cwd)).not.toMatch(/^drop table/m)
+    })
+  })
+
+  describe('--apply confirmation', () => {
+    const args = ['fix', '--from', 'report.json', '--db', DB, '--apply']
+
+    it('applies when the answer is yes, and names the database in the question', async () => {
+      const deps = fixDeps()
+      const questions: string[] = []
+      const confirm = async (question: string): Promise<boolean> => {
+        questions.push(question)
+        return true
+      }
+      expect(await run(args, captureIO({ cwd: setup(), confirm }), deps)).toBe(0)
+      expect(deps.log.applied).toHaveLength(1)
+      expect(questions[0]).toContain('localhost')
+      expect(questions[0]).toMatch(/\[y\/N\]/)
+    })
+
+    it('leaves the database alone and keeps the file when the answer is no', async () => {
+      const deps = fixDeps()
+      const cwd = setup()
+      const io = captureIO({ cwd, confirm: async () => false })
+      expect(await run(args, io, deps)).toBe(0)
+      expect(deps.log.applied).toEqual([])
+      expect(deps.calls.scanOptions).toEqual([])
+      expect(sqlFile(cwd)).toBeDefined()
+      expect(io.out()).toMatch(/not applied/i)
+    })
+
+    it('does not ask with -y', async () => {
+      const deps = fixDeps()
+      const confirm = async (): Promise<boolean> => {
+        throw new Error('should not ask')
+      }
+      expect(await run([...args, '-y'], captureIO({ cwd: setup(), confirm }), deps)).toBe(0)
+      expect(deps.log.applied).toHaveLength(1)
+    })
+
+    it('refuses before doing anything when there is no terminal to ask on', async () => {
+      const deps = fixDeps()
+      const io = captureIO({ cwd: setup() })
+      expect(await run(args, io, deps)).toBe(2)
+      expect(io.err()).toContain('-y')
+      expect(deps.calls.connect).toEqual([])
+    })
+
+    it('does not ask without --apply', async () => {
+      const confirm = async (): Promise<boolean> => {
+        throw new Error('should not ask')
+      }
+      const noApply = ['fix', '--from', 'report.json', '--db', DB]
+      expect(await run(noApply, captureIO({ cwd: setup(), confirm }), fixDeps())).toBe(0)
+    })
+  })
+
   describe('--apply', () => {
     it('applies, rescans, and prints before and after', async () => {
       const deps = fixDeps()
       const io = captureIO({ cwd: setup() })
-      expect(await run(['fix', '--from', 'report.json', '--db', DB, '--apply'], io, deps)).toBe(0)
+      expect(await run(['fix', '--from', 'report.json', '--db', DB, '--apply', '-y'], io, deps)).toBe(0)
       expect(deps.log.applied).toHaveLength(1)
       expect(deps.calls.scanOptions).toHaveLength(1)
       expect(io.out()).toMatch(/40\/100.*D.*→.*100\/100.*A/)
@@ -336,7 +422,7 @@ describe('redrow fix', () => {
         counts: { critical: 0, high: 0, medium: 1, low: 0, info: 0 },
       })
       const io = captureIO({ cwd: setup() })
-      expect(await run(['fix', '--from', 'report.json', '--db', DB, '--apply'], io, fixDeps({ rescan: remaining }))).toBe(1)
+      expect(await run(['fix', '--from', 'report.json', '--db', DB, '--apply', '-y'], io, fixDeps({ rescan: remaining }))).toBe(1)
       expect(io.out()).toContain('96/100')
     })
 
@@ -344,7 +430,7 @@ describe('redrow fix', () => {
       const cwd = setup()
       writeFileSync(join(cwd, 'redrow.config.json'), JSON.stringify({ publicTables: ['p'] }))
       const deps = fixDeps()
-      await run(['fix', '--from', 'report.json', '--db', DB, '--apply'], captureIO({ cwd }), deps)
+      await run(['fix', '--from', 'report.json', '--db', DB, '--apply', '-y'], captureIO({ cwd }), deps)
       expect(deps.calls.scanOptions[0]).toMatchObject({ schemas: ['public'], publicTables: ['p'] })
     })
   })

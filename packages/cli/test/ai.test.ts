@@ -37,7 +37,20 @@ describe('generateWithClaude', () => {
 
   it('returns the text of the response', async () => {
     respondWith(200, messageBody())
-    await expect(generateWithClaude(PROMPT, KEY, 'claude-sonnet-5-5')).resolves.toBe('begin;\ncommit;')
+    await expect(generateWithClaude(PROMPT, KEY, 'claude-sonnet-5-5')).resolves.toEqual({
+      text: 'begin;\ncommit;',
+      model: 'claude-sonnet-5-5',
+      usedFallback: false,
+    })
+  })
+
+  it('reports the model that really answered when a fallback served the request', async () => {
+    const usage = { input_tokens: 1, output_tokens: 1, iterations: [{ type: 'fallback_message' }] }
+    respondWith(200, messageBody({ model: 'claude-opus-4-8', usage }))
+    await expect(generateWithClaude(PROMPT, KEY, 'claude-sonnet-5-5')).resolves.toMatchObject({
+      model: 'claude-opus-4-8',
+      usedFallback: true,
+    })
   })
 
   it('joins text blocks and skips anything else', async () => {
@@ -47,7 +60,7 @@ describe('generateWithClaude', () => {
       { type: 'text', text: 'two' },
     ]
     respondWith(200, messageBody({ content }))
-    await expect(generateWithClaude(PROMPT, KEY, 'claude-sonnet-5-5')).resolves.toBe('one\ntwo')
+    await expect(generateWithClaude(PROMPT, KEY, 'claude-sonnet-5-5')).resolves.toMatchObject({ text: 'one\ntwo' })
   })
 
   it('sends the prompt and model, and allows server-side fallback', async () => {

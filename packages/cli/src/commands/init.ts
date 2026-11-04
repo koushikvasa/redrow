@@ -16,6 +16,6 @@ export function runInit(force: boolean, io: CliIO): number {
     }
     throw new CliError(`Could not write ${DEFAULT_CONFIG_FILE}.`)
   }
-  io.stdout(`Created ${DEFAULT_CONFIG_FILE}. Next: redrow scan --db <url>\n`)
+  io.stdout(`Created ${DEFAULT_CONFIG_FILE}. Next: npm run scan -- --db <url>\n`)
   return EXIT_OK
 }

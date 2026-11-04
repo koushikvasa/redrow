@@ -2,7 +2,7 @@
 
 > **AI wrote your RLS. Red Row proves whether it leaks.**
 
-Red Row is an open-source CLI (`npx redrow scan`) that **attacks a Supabase project's Row Level Security** with simulated users and reports, with real row counts, who can read or write what. Every attack runs inside a transaction that is always rolled back, so it is safe to run on any project.
+Red Row is an open-source CLI (clone the repo, then `npm run scan`) that **attacks a Supabase project's Row Level Security** with simulated users and reports, with real row counts, who can read or write what. Every attack runs inside a transaction that is always rolled back, so it is safe to run on any project.
 
 Built for the **Supabase × Sodabase × BuilderBase NYC Hackathon (Wed Nov 4, 2026)**. Read `docs/` before building anything:
 
@@ -87,8 +87,8 @@ Two separate Supabase cloud projects (free tier allows 2):
 
 ## Definition of done (hackathon)
 
-- `npx redrow scan --db $DEMO_DB_URL` prints a red report in < 10 s (the demo host is in `allowHosts`, or pass `-y`); `--html` writes a self-contained report.
-- `npx redrow fix --from report.json` writes a migration; after applying it, rescan = 100 (or near).
+- `npm run scan -- --db $DEMO_DB_URL` prints a red report in < 10 s (the demo host is in `allowHosts`, or pass `-y`); `--html` writes a self-contained report.
+- `npm run fix -- --from report.json` writes a migration; after applying it, rescan = 100 (or near).
 - HQ scanning itself = 100. pg_cron sweep writes a scan every minute. Sodabase connected.
 - Dashboard live on Vercel: score dial, leak matrix, score-over-time, findings with copyable fix SQL.
 - README with GIF, install line, safety explanation, MIT license. Repo public.

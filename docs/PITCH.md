@@ -1,7 +1,7 @@
 # Pitch, research backing, demo script
 
 ## One-liner
-**AI wrote your RLS. Red Row proves whether it leaks.** `npx redrow scan` attacks your Supabase Row Level Security as anon / user A / user B inside rolled-back transactions and shows exactly who can read and write what.
+**AI wrote your RLS. Red Row proves whether it leaks.** `npm run scan` attacks your Supabase Row Level Security as anon / user A / user B inside rolled-back transactions and shows exactly who can read and write what.
 
 ## The problem (what the judges already know)
 - **CVE-2025-48757 (CVSS 9.3):** insufficient RLS policies in Supabase databases behind Lovable-generated sites let unauthenticated attackers read arbitrary user data.
@@ -28,12 +28,12 @@ Supabase Security Advisor is a static linter: it tells you RLS is **on**. A poli
 
 ## 3-minute demo script
 1. **(0:00) Hook.** "Raise your hand if an AI has written an RLS policy for you. This is CareNote — a clinic app the way an AI builder generates it. Supabase Advisor is mostly happy with it."
-2. **(0:25) Attack.** Run `npx redrow scan --db $CARENOTE`. Terminal turns red: score 0/F. "Logged in as Dr. Ana, I can read **all 120 patients**, and delete Dr. Ben's notes. Anonymous visitors can read every clinician's email."
+2. **(0:25) Attack.** Run `npm run scan -- --db $CARENOTE`. Terminal turns red: score 0/F. "Logged in as Dr. Ana, I can read **all 120 patients**, and delete Dr. Ben's notes. Anonymous visitors can read every clinician's email."
 3. **(1:05) Matrix.** Dashboard: leak matrix (anon / Dr. Ana / Dr. Ben × tables × read/insert/update/delete). Red cells with row counts. Invoices row is green — "the one table the AI got right."
-4. **(1:35) Fix.** `npx redrow fix --apply`. Show the generated migration, every block labeled with the rule it fixes. Rescan → 100/A. Dial animates.
+4. **(1:35) Fix.** `npm run fix -- --from report.json --apply`. Show the generated migration, every block labeled with the rule it fixes. Rescan → 100/A. Dial animates.
 5. **(2:10) Safety.** "Every attack runs inside a transaction that's rolled back. We record counts and ids, never row contents. Nothing persists, and we only ever record counts."
 6. **(2:30) Scale + data quality.** "And our own backend? Red Row scans it every minute: 100. Here's our Sodabase score." Show both.
-7. **(2:50) Close.** "`npx redrow scan`. Open source today. Run it on your project before someone else does."
+7. **(2:50) Close.** "Clone it and `npm run scan`. Open source today. Run it on your project before someone else does."
 
 ## Likely judge questions
 - **"Isn't this Security Advisor?"** Advisor = static config lint. We prove exploitability with real counts, catch semantic leaks (`using (true)`, missing ownership, missing `with check`) that lint clean, and generate the fix.

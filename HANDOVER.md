@@ -45,7 +45,7 @@ Task H2: dynamic probes + the `redrow` CLI.
 2. packages/cli (bin name `redrow`), commander + picocolors + cli-table3 + ora, built with tsup to one ESM file with a shebang:
    - `redrow scan --db <url> [--schema public] [--read-only] [--json out.json] [--html out.html] [--fail-under N] [--upload]`
      DB url also from REDROW_DB_URL / .env. Mask password in all output.
-     Print the safety banner, a spinner per phase, then: big score + grade, findings table sorted by severity, leak matrix (tables × actor/action with ✔/✖ and counts), and "Fix it: npx redrow fix --from <json>".
+     Print the safety banner, a spinner per phase, then: big score + grade, findings table sorted by severity, leak matrix (tables × actor/action with ✔/✖ and counts), and "Fix it: npm run fix -- --from <json>".
    - Friendly error for connection failures suggesting the Session pooler string (port 5432).
    - Exit codes per CLAUDE.md.
 3. A test `packages/engine/test/rollback.test.ts` that runs against REDROW_TEST_DB_URL if set (skip otherwise): count rows, run probes, assert counts unchanged.
@@ -114,7 +114,7 @@ Done when: cron writes a new scan_runs row for each project every minute, and `r
 Load the frontend-design skill if available. Task H6: apps/web Next.js App Router + Tailwind + @supabase/ssr, deploy to Vercel.
 - Public board (no login): project cards for every is_public project with live score dial.
 - Project page: score dial (animated), score-over-time line chart (last 24h + 14d), live leak matrix from the latest scan's probe_results, findings list grouped by severity with copy-to-clipboard fix hints, "last scanned Xs ago" ticker. Realtime subscription on scan_runs/findings so it updates every minute on screen.
-- Hero: "AI wrote your RLS. Red Row proves whether it leaks." + copyable `npx redrow scan` line.
+- Hero: "AI wrote your RLS. Red Row proves whether it leaks." + copyable `npm run scan -- --db "..."` line and a link to the repo.
 - Aesthetic: dark, precise, red-team. Red only for leaks; everything else restrained.
 
 Done when: deployed URL updates live as the sweep runs.
@@ -125,5 +125,5 @@ Done when: deployed URL updates live as the sweep runs.
 ## H7 — README + polish (last 20 minutes)
 
 ```
-Write README.md: tagline, GIF/screenshot placeholder, 30-second quickstart (npx redrow scan --db "<session pooler url>"), what it checks (rule table), safety section (rollback, counts only, read-only mode), how fix works, CI usage, architecture diagram (text), research links from docs/PITCH.md, MIT license. Make it scannable.
+Write README.md: tagline, GIF/screenshot placeholder, 30-second quickstart (git clone, npm install, npm run scan -- --db "<session pooler url>"), what it checks (rule table), safety section (rollback, counts only, read-only mode), how fix works, CI usage, architecture diagram (text), research links from docs/PITCH.md, MIT license. Make it scannable.
 ```

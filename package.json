@@ -12,11 +12,13 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "prepare": "npm run build",
+    "build": "npm run build -w @redrow/engine && npm run build -w redrow",
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "scan": "node packages/cli/dist/index.js scan",
+    "fix": "node packages/cli/dist/index.js fix",
     "demo:reset": "node demo-target/scripts/apply.mjs demo-target/supabase/reset.sql demo-target/supabase/leaky.sql && node demo-target/scripts/seed.mjs",
     "demo:fix-reference": "node demo-target/scripts/apply.mjs demo-target/supabase/fixed.sql"
   },
