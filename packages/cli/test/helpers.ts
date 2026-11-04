@@ -46,7 +46,7 @@ export const scanResult = (overrides: Partial<ScanResult> = {}): ScanResult => (
   target: { host: 'localhost', database: 'app_test', schemas: ['public'] },
   score: 100,
   grade: 'A',
-  counts: { critical: 0, high: 0, medium: 0, low: 0 },
+  counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
   tables: [],
   findings: [],
   probes: [],
@@ -55,10 +55,10 @@ export const scanResult = (overrides: Partial<ScanResult> = {}): ScanResult => (
   ...overrides,
 })
 
-export const resultWith = (severity: 'critical' | 'high' | 'medium' | 'low'): ScanResult =>
+export const resultWith = (severity: 'critical' | 'high' | 'medium' | 'low' | 'info'): ScanResult =>
   scanResult({
     findings: [finding({ severity })],
-    counts: { critical: 0, high: 0, medium: 0, low: 0, [severity]: 1 },
+    counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, [severity]: 1 },
   })
 
 export interface FakeDeps extends CliDeps {
@@ -104,7 +104,7 @@ const reportFinding = (overrides: Partial<ReportFinding>): ReportFinding => ({
 
 const emptySummary: Report['summary'] = {
   total: 0,
-  bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+  bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
   score: 100,
   grade: 'A',
   tablesScanned: 3,
@@ -149,9 +149,31 @@ export const CRITICAL_ONLY_REPORT: Report = {
   summary: {
     ...emptySummary,
     total: 1,
-    bySeverity: { critical: 1, high: 0, medium: 0, low: 0 },
+    bySeverity: { critical: 1, high: 0, medium: 0, low: 0, info: 0 },
     score: 75,
     grade: 'D',
+  },
+}
+
+/** HQ's self-scan: nothing wrong, and one exposure the project declared on purpose. */
+export const DECLARED_ONLY_REPORT: Report = {
+  ...reportBase,
+  findings: [
+    reportFinding({
+      id: 'RR101',
+      severity: 'info',
+      table: 'projects',
+      policy: 'projects_read',
+      probe: 'anon:select_all',
+      description: 'Declared exposure: Anyone holding the public anon key can read 2 rows of public.projects through the API.',
+      evidence: { kind: 'probe', schema: 'public', actor: 'anon', action: 'select_all', outcome: 'allowed', rowCount: 2 },
+      remediation: 'None needed while this table is meant to be public. If it is not, remove it from publicTables.',
+    }),
+  ],
+  summary: {
+    ...emptySummary,
+    total: 0,
+    bySeverity: { critical: 0, high: 0, medium: 0, low: 0, info: 1 },
   },
 }
 
@@ -185,7 +207,7 @@ export const MIXED_REPORT: Report = {
   summary: {
     ...emptySummary,
     total: 4,
-    bySeverity: { critical: 1, high: 1, medium: 1, low: 1 },
+    bySeverity: { critical: 1, high: 1, medium: 1, low: 1, info: 0 },
     score: 60,
     grade: 'D',
     inconclusive: 1,

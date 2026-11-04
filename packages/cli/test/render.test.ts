@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { renderReport } from '../src/render'
 import { sanitizeForTerminal, toTerminalSafeJson } from '../src/sanitize'
-import { CRITICAL_ONLY_REPORT, EMPTY_REPORT, MIXED_REPORT } from './helpers'
+import { CRITICAL_ONLY_REPORT, DECLARED_ONLY_REPORT, EMPTY_REPORT, MIXED_REPORT } from './helpers'
 
 const plain = { color: false, verbose: false }
 
@@ -21,6 +21,10 @@ describe('renderReport snapshots', () => {
 
   it('critical only', () => {
     expect(renderReport(CRITICAL_ONLY_REPORT, plain)).toMatchSnapshot()
+  })
+
+  it('declared exposure only', () => {
+    expect(renderReport(DECLARED_ONLY_REPORT, plain)).toMatchSnapshot()
   })
 
   it('mixed severity, verbose', () => {
@@ -77,6 +81,19 @@ describe('renderReport', () => {
     expect(text).not.toContain(BIDI_OVERRIDE)
     expect(text).not.toContain('\r')
     expect(text).toContain('line\\u{a}break')
+  })
+
+  it('shows declared exposure as its own group, after real findings, without calling it a failure', () => {
+    const text = renderReport(DECLARED_ONLY_REPORT, plain)
+    expect(text).toContain('DECLARED EXPOSURE (1)')
+    expect(text).toContain('Score 100/100, grade A')
+    expect(text).toContain('1 declared exposure')
+    expect(text).not.toContain('No findings')
+    expect(text).toContain('0 findings')
+  })
+
+  it('keeps the plain counts line when nothing is declared', () => {
+    expect(renderReport(CRITICAL_ONLY_REPORT, plain)).not.toContain('declared')
   })
 
   it('qualifies a clean result when probes were inconclusive', () => {

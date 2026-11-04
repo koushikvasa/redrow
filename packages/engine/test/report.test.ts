@@ -10,7 +10,7 @@ const base: ScanResult = {
   target: { host: 'db.example.com', database: 'app_test', schemas: ['public'] },
   score: 40,
   grade: 'D',
-  counts: { critical: 1, high: 1, medium: 0, low: 1 },
+  counts: { critical: 1, high: 1, medium: 0, low: 1, info: 0 },
   tables: [{ schema: 'public', table: 't', rlsEnabled: true, totalRows: 5, sensitive: [] }],
   findings: [],
   probes: [
@@ -57,6 +57,12 @@ describe('toReport', () => {
     expect(report.findings.map((f) => f.severity)).toEqual(['critical', 'high', 'low'])
   })
 
+  it('sorts info after everything else', () => {
+    const info = { ...lowStatic, severity: 'info' } as const
+    const sorted = toReport({ ...base, findings: [info, lowStatic] }).findings
+    expect(sorted.map((f) => f.severity)).toEqual(['low', 'info'])
+  })
+
   it('sorts within a severity by rule id, then table, so output is stable between runs', () => {
     const a = makeFinding('RR008', { schema: 'public', table: 'b', policy: 'p' }, 'x')
     const b = makeFinding('RR008', { schema: 'public', table: 'a', policy: 'p' }, 'x')
@@ -99,7 +105,7 @@ describe('toReport', () => {
   it('summarizes counts, score and the probe matrix H6 needs', () => {
     expect(report.summary).toEqual({
       total: 3,
-      bySeverity: { critical: 1, high: 1, medium: 0, low: 1 },
+      bySeverity: { critical: 1, high: 1, medium: 0, low: 1, info: 0 },
       score: 40,
       grade: 'D',
       tablesScanned: 1,

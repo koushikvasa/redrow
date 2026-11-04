@@ -117,15 +117,24 @@ export function parseConnection(url: string): ConnectionTarget {
 export const needsProductionOverride = (target: ConnectionTarget): boolean =>
   !target.isLocal && !SAFE_DATABASE_NAME.test(target.database)
 
-export function assertAllowedTarget(target: ConnectionTarget, overridden: boolean): void {
-  if (!needsProductionOverride(target) || overridden) return
+/** Exact comparison only: no suffixes, patterns or parent domains. */
+export const isAllowedHost = (target: ConnectionTarget, allowHosts: readonly string[]): boolean =>
+  allowHosts.includes(target.host)
+
+export function assertAllowedTarget(
+  target: ConnectionTarget,
+  overridden: boolean,
+  allowHosts: readonly string[],
+): void {
+  if (!needsProductionOverride(target) || overridden || isAllowedHost(target, allowHosts)) return
   throw new CliError(
     `Refusing to scan ${target.label}: this looks like production.\n` +
       `The host isn't localhost and the database name doesn't contain test, demo or staging.\n` +
       `Row changes are always rolled back, but a rollback can't undo everything: triggers fire, sequences\n` +
       `advance, and extensions such as dblink or http can have outside effects. Unfiltered updates and\n` +
       `deletes also add load, for up to 5 seconds per statement.\n` +
-      `Supabase databases are always named "postgres", so to scan one on purpose, add ${PRODUCTION_OVERRIDE_FLAG}.`,
+      `Supabase databases are always named "postgres". To scan this one on purpose, add -y (${PRODUCTION_OVERRIDE_FLAG}),\n` +
+      `or list this exact host in allowHosts in redrow.config.json.`,
   )
 }
 

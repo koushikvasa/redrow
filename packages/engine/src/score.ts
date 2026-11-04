@@ -5,10 +5,11 @@ const SEVERITY_WEIGHTS: Readonly<Record<Severity, number>> = {
   high: 10,
   medium: 4,
   low: 1,
+  info: 0,
 }
 
 /** Most severe first. */
-export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low']
+export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info']
 
 /** True when `severity` is at least as serious as `threshold`. */
 export const meetsSeverity = (severity: Severity, threshold: Severity): boolean =>
@@ -48,6 +49,7 @@ export function scoreFindings(findings: readonly Finding[]): ScoreSummary {
     high: countOf(findings, 'high'),
     medium: countOf(findings, 'medium'),
     low: countOf(findings, 'low'),
+    info: countOf(findings, 'info'),
   }
   const penalty =
     counts.critical * SEVERITY_WEIGHTS.critical +

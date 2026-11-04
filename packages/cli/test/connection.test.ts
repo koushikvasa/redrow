@@ -109,8 +109,45 @@ describe('production guard', () => {
 
   it('throws without the override and passes with it', () => {
     const target = parseConnection('postgres://u:p@db.example.com/postgres')
-    expect(() => assertAllowedTarget(target, false)).toThrow(/--i-know-what-im-doing/)
-    expect(() => assertAllowedTarget(target, true)).not.toThrow()
+    expect(() => assertAllowedTarget(target, false, [])).toThrow(/--i-know-what-im-doing/)
+    expect(() => assertAllowedTarget(target, true, [])).not.toThrow()
+  })
+
+  it('passes when the host exactly matches allowHosts, and names both options when refusing', () => {
+    const target = parseConnection('postgres://u:p@db.example.com/postgres')
+    expect(() => assertAllowedTarget(target, false, ['db.example.com'])).not.toThrow()
+    expect(() => assertAllowedTarget(target, false, [])).toThrow(/allowHosts/)
+    expect(() => assertAllowedTarget(target, false, [])).toThrow(/-y/)
+  })
+
+  it.each([
+    ['a parent domain', 'example.com'],
+    ['a sibling host', 'db2.example.com'],
+    ['a longer host', 'db.example.com.evil.net'],
+    ['a shorter host', 'db.example'],
+    ['a pattern, even if one got this far', '*.example.com'],
+  ])('does not treat %s as a match', (_label, entry) => {
+    const target = parseConnection('postgres://u:p@db.example.com/postgres')
+    expect(() => assertAllowedTarget(target, false, [entry])).toThrow(/Refusing/)
+  })
+
+  it.each([
+    ['upper case', 'postgres://u:p@DB.EXAMPLE.COM/postgres'],
+    ['a trailing dot', 'postgres://u:p@db.example.com./postgres'],
+    ['percent encoding', 'postgres://u:p@db%2Eexample.com/postgres'],
+  ])('fails closed on a url spelling the host with %s', (_label, url) => {
+    expect(() => assertAllowedTarget(parseConnection(url), false, ['db.example.com'])).toThrow(/Refusing/)
+  })
+
+  it('matches on the host alone, so an entry covers every database and login on that host', () => {
+    const allowHosts = ['pooler.example.com']
+    const projects = [
+      'postgres://postgres.project_a:p@pooler.example.com:5432/postgres',
+      'postgres://postgres.project_b:p@pooler.example.com:6543/postgres',
+    ]
+    for (const url of projects) {
+      expect(() => assertAllowedTarget(parseConnection(url), false, allowHosts)).not.toThrow()
+    }
   })
 })
 

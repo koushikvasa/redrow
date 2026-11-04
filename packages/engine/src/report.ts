@@ -26,6 +26,7 @@ export interface ReportFinding {
 }
 
 export interface ReportSummary {
+  /** Findings that count against the score. Declared exposure is only in `bySeverity.info`. */
   readonly total: number
   readonly bySeverity: SeverityCounts
   readonly score: number
@@ -88,7 +89,7 @@ export function toReport(result: ScanResult): Report {
     },
     findings: [...result.findings].sort(compareFindings).map(toReportFinding),
     summary: {
-      total: result.findings.length,
+      total: result.findings.filter((f) => f.severity !== 'info').length,
       bySeverity: result.counts,
       score: result.score,
       grade: result.grade,

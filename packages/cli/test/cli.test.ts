@@ -80,6 +80,50 @@ describe('production guard', () => {
     expect(io.err()).toMatch(/warning/i)
   })
 
+  it('accepts -y as the short form of the override', async () => {
+    const deps = fakeDeps()
+    expect(await run(['scan', '--db', PROD_DB, '-y'], captureIO(), deps)).toBe(0)
+    expect(deps.calls.connect).toHaveLength(1)
+  })
+
+  it('documents -y in the help', async () => {
+    const io = captureIO()
+    await run(['scan', '--help'], io, fakeDeps())
+    expect(io.out()).toContain('-y, --i-know-what-im-doing')
+  })
+
+  describe('allowHosts', () => {
+    const configured = (allowHosts: readonly string[]) => {
+      const cwd = tempDir()
+      writeFileSync(join(cwd, 'redrow.config.json'), JSON.stringify({ allowHosts }))
+      return cwd
+    }
+
+    it('skips the refusal for an exact match, and says why it did', async () => {
+      const io = captureIO({ cwd: configured(['db.example.com']) })
+      const deps = fakeDeps()
+      expect(await run(['scan', '--db', PROD_DB], io, deps)).toBe(0)
+      expect(deps.calls.connect).toHaveLength(1)
+      expect(io.err()).toContain('allowHosts')
+      expect(io.err()).not.toMatch(/warning/i)
+    })
+
+    it('still refuses a different host', async () => {
+      const io = captureIO({ cwd: configured(['other.example.com']) })
+      const deps = fakeDeps()
+      expect(await run(['scan', '--db', PROD_DB], io, deps)).toBe(2)
+      expect(deps.calls.connect).toEqual([])
+    })
+
+    it('refuses a wildcard in the config outright, before connecting', async () => {
+      const io = captureIO({ cwd: configured(['*.example.com']) })
+      const deps = fakeDeps()
+      expect(await run(['scan', '--db', PROD_DB, '-y'], io, deps)).toBe(2)
+      expect(deps.calls.connect).toEqual([])
+      expect(io.err()).toContain('allowHosts')
+    })
+  })
+
   it('cannot be talked past with a query-string host', async () => {
     const io = captureIO()
     const deps = fakeDeps()
@@ -122,6 +166,16 @@ describe('exit codes', () => {
       fakeDeps(resultWith(severity)),
     )
     expect(code).toBe(expected)
+  })
+
+  it.each(['low', 'medium', 'high', 'critical'])('declared exposure alone exits 0 at --severity %s', async (threshold) => {
+    const args = ['scan', '--db', LOCAL_DB, '--severity', threshold]
+    expect(await run(args, captureIO(), fakeDeps(resultWith('info')))).toBe(0)
+  })
+
+  it('does not offer info as a --severity level', async () => {
+    const io = captureIO()
+    expect(await run(['scan', '--db', LOCAL_DB, '--severity', 'info'], io, fakeDeps())).toBe(2)
   })
 
   it('defaults to --severity low, so any finding fails', async () => {
@@ -267,6 +321,43 @@ describe('options passed to the engine', () => {
     const cwd = tempDir()
     writeFileSync(join(cwd, 'other.json'), JSON.stringify({ schemas: ['app'] }))
     expect((await optionsFrom(['--config', 'other.json'], cwd)).schemas).toEqual(['app'])
+  })
+
+  it('passes publicTables through to the engine', async () => {
+    const cwd = tempDir()
+    writeFileSync(join(cwd, 'redrow.config.json'), JSON.stringify({ publicTables: ['projects'] }))
+    expect((await optionsFrom([], cwd)).publicTables).toEqual(['projects'])
+  })
+
+  describe('announcing publicTables', () => {
+    const scanWith = async (config: object, args: readonly string[] = []) => {
+      const cwd = tempDir()
+      writeFileSync(join(cwd, 'c.json'), JSON.stringify(config))
+      const io = captureIO({ cwd })
+      await run(['scan', '--db', LOCAL_DB, '--config', 'c.json', ...args], io, fakeDeps())
+      return io
+    }
+
+    it('says which file declared which tables, so a cloned config cannot hide findings silently', async () => {
+      const io = await scanWith({ publicTables: ['projects', 'plans'] })
+      expect(io.err()).toContain('c.json')
+      expect(io.err()).toContain('projects, plans')
+    })
+
+    it('still says so under --json, on stderr', async () => {
+      const io = await scanWith({ publicTables: ['projects'] }, ['--json'])
+      expect(io.err()).toContain('projects')
+      expect(() => JSON.parse(io.out()) as unknown).not.toThrow()
+    })
+
+    it('stays quiet when nothing is declared', async () => {
+      expect((await scanWith({})).err()).not.toMatch(/declared/i)
+    })
+
+    it('neutralizes control characters in the names it prints', async () => {
+      const io = await scanWith({ publicTables: ['a\u001b[31mb'] })
+      expect(io.err()).not.toContain('\u001b')
+    })
   })
 
   it('passes tenant fixtures as actors and role fixtures as roles', async () => {

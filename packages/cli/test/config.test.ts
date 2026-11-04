@@ -15,7 +15,37 @@ describe('parseConfig', () => {
       roles: { anon: true, authenticated: true, service_role: false },
       tenants: { userA: null, userB: null },
       ownerColumns: {},
+      allowHosts: [],
+      publicTables: [],
     })
+  })
+
+  it('accepts exact host names and table names', () => {
+    const parsed = parseConfig(
+      { allowHosts: ['aws-0-us-east-1.pooler.supabase.com'], publicTables: ['projects', 'public.plans'] },
+      'c.json',
+    )
+    expect(parsed.allowHosts).toEqual(['aws-0-us-east-1.pooler.supabase.com'])
+    expect(parsed.publicTables).toEqual(['projects', 'public.plans'])
+  })
+
+  it('offers allowHosts and publicTables in the starter config, empty', () => {
+    const starter = JSON.parse(STARTER_CONFIG) as Record<string, unknown>
+    expect(starter.allowHosts).toEqual([])
+    expect(starter.publicTables).toEqual([])
+  })
+
+  it.each([
+    ['*.supabase.com'],
+    ['*'],
+    ['aws-0-*.pooler.supabase.com'],
+    ['db.example.com:5432'],
+    ['postgres://db.example.com'],
+    ['db.example.com/postgres'],
+    [' db.example.com'],
+    [''],
+  ])('rejects %j in allowHosts: only one exact host name is allowed', (entry) => {
+    expect(() => parseConfig({ allowHosts: [entry] }, 'c.json')).toThrow('allowHosts')
   })
 
   it('accepts the starter config, whose comments are $comment keys', () => {

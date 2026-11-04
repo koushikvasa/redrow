@@ -12,6 +12,12 @@ const comment = z.string().optional()
 
 const userId = z.string().regex(UUID, 'must be a uuid').nullable().default(null)
 
+// Rejecting these outright, rather than ignoring them, means a pattern someone hoped would
+// work fails loudly. Matching is exact, so `*.supabase.com` could only ever match nothing.
+const exactHostName = z
+  .string()
+  .regex(/^[A-Za-z0-9.-]+$/, 'must be one exact host name, with no wildcard, port or scheme')
+
 const configSchema = z.strictObject({
   $comment: comment,
   schemas: z.array(z.string().min(1)).min(1).default(['public']),
@@ -36,6 +42,8 @@ const configSchema = z.strictObject({
       error: 'userA and userB must be different users, or a cross-tenant leak cannot show up',
     }),
   ownerColumns: z.record(z.string(), z.string().min(1)).default({}),
+  allowHosts: z.array(exactHostName).default([]),
+  publicTables: z.array(z.string().min(1)).default([]),
 })
 
 export interface RedrowConfig {
@@ -44,11 +52,16 @@ export interface RedrowConfig {
   readonly roles: { readonly anon: boolean; readonly authenticated: boolean; readonly service_role: false }
   readonly tenants: { readonly userA: string | null; readonly userB: string | null }
   readonly ownerColumns: Readonly<Record<string, string>>
+  readonly allowHosts: readonly string[]
+  readonly publicTables: readonly string[]
 }
 
 export const STARTER_CONFIG = `${JSON.stringify(
   {
-    $comment: 'Red Row config. Keys named $comment are ignored, because JSON has no comments.',
+    $comment:
+      'Red Row config. Keys named $comment are ignored, because JSON has no comments. ' +
+      'allowHosts: exact host names to scan without -y; no wildcards. ' +
+      'publicTables: tables anon is meant to read; a bare name means the public schema, or use schema.table. Their anon reads are reported as declared exposure and score nothing, and writes still count.',
     schemas: ['public'],
     tables: [],
     roles: {
@@ -65,6 +78,8 @@ export const STARTER_CONFIG = `${JSON.stringify(
       userB: null,
     },
     ownerColumns: {},
+    allowHosts: [],
+    publicTables: [],
   },
   null,
   2,
@@ -80,13 +95,15 @@ export function parseConfig(raw: unknown, source: string): RedrowConfig {
     })
     throw new CliError(`Invalid config in ${source}:\n${problems.join('\n')}`)
   }
-  const { schemas, tables, roles, tenants, ownerColumns } = result.data
+  const { schemas, tables, roles, tenants, ownerColumns, allowHosts, publicTables } = result.data
   return {
     schemas,
     tables,
     roles: { anon: roles.anon, authenticated: roles.authenticated, service_role: roles.service_role },
     tenants: { userA: tenants.userA, userB: tenants.userB },
     ownerColumns,
+    allowHosts,
+    publicTables,
   }
 }
 

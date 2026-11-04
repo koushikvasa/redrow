@@ -37,7 +37,7 @@ describe('scan', () => {
     expect(result.findings.map((f) => f.ruleId)).toEqual(['RR001'])
     expect(result.score).toBe(75)
     expect(result.grade).toBe('D')
-    expect(result.counts).toEqual({ critical: 1, high: 0, medium: 0, low: 0 })
+    expect(result.counts).toEqual({ critical: 1, high: 0, medium: 0, low: 0, info: 0 })
     expect(result.tables).toEqual([
       {
         schema: 'public',
@@ -113,6 +113,61 @@ describe('scan', () => {
     })
     const { warnings } = await scan(sql.client)
     expect(warnings.some((w) => w.includes('public.a.b'))).toBe(true)
+  })
+
+  it('applies publicTables: the read becomes info, and the score ignores it', async () => {
+    const sql = fakeSql({
+      rowsByQuery: {
+        // Readable by anon only, with RLS off: RR001 and RR101 are both reads.
+        'c.relrowsecurity': [
+          {
+            ...openTable,
+            anon_insert: false,
+            anon_update: false,
+            anon_delete: false,
+            auth_insert: false,
+            auth_update: false,
+            auth_delete: false,
+          },
+        ],
+        'format_type(': [{ table_oid: 1, attnum: 1, column: 'email', type: 'text', writable: true }],
+        'count(*)::int as n': [{ n: 3 }],
+      },
+    })
+    const result = await scan(sql.client, { readOnly: true, publicTables: ['profiles'] })
+    expect(result.findings.map((f) => [f.ruleId, f.severity])).toEqual([
+      ['RR001', 'info'],
+      ['RR101', 'info'],
+    ])
+    expect(result.score).toBe(100)
+    expect(result.grade).toBe('A')
+    expect(result.counts.info).toBe(2)
+  })
+
+  it('keeps a read-only scan honest: an anon write policy still stops the downgrade', async () => {
+    const sql = fakeSql({
+      rowsByQuery: {
+        'c.relrowsecurity': [{ ...openTable, rls_enabled: true }],
+        'format_type(': [{ table_oid: 1, attnum: 1, column: 'email', type: 'text', writable: true }],
+        'count(*)::int as n': [{ n: 3 }],
+        pg_policies: [
+          {
+            schema: 'public',
+            table: 'profiles',
+            name: 'anyone_deletes',
+            permissive: 'PERMISSIVE',
+            roles: ['anon'],
+            cmd: 'DELETE',
+            qual: 'true',
+            with_check: null,
+          },
+        ],
+      },
+    })
+    const result = await scan(sql.client, { readOnly: true, publicTables: ['profiles'] })
+    expect(result.probes.some((p) => p.action === 'delete_any')).toBe(false)
+    expect(result.findings.find((f) => f.ruleId === 'RR101')?.severity).toBe('critical')
+    expect(result.score).toBeLessThan(100)
   })
 
   it('reports the phases in order', async () => {

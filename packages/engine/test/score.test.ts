@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scoreFindings } from '../src/score'
+import { meetsSeverity, scoreFindings } from '../src/score'
 import type { Finding, Severity } from '../src/types'
 
 const findings = (severity: Severity, count: number): Finding[] =>
@@ -17,7 +17,17 @@ describe('scoreFindings', () => {
     expect(scoreFindings([])).toEqual({
       score: 100,
       grade: 'A',
-      counts: { critical: 0, high: 0, medium: 0, low: 0 },
+      counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+    })
+  })
+
+  it('charges nothing for info findings', () => {
+    expect(scoreFindings(findings('info', 5))).toMatchObject({ score: 100, grade: 'A', counts: { info: 5 } })
+  })
+
+  describe('meetsSeverity', () => {
+    it.each(['low', 'medium', 'high', 'critical'] as const)('info never reaches --severity %s', (threshold) => {
+      expect(meetsSeverity('info', threshold)).toBe(false)
     })
   })
 
@@ -33,7 +43,7 @@ describe('scoreFindings', () => {
   it('sums penalties and counts by severity', () => {
     const result = scoreFindings([...findings('critical', 1), ...findings('high', 2), ...findings('medium', 1)])
     expect(result.score).toBe(100 - 25 - 20 - 4)
-    expect(result.counts).toEqual({ critical: 1, high: 2, medium: 1, low: 0 })
+    expect(result.counts).toEqual({ critical: 1, high: 2, medium: 1, low: 0, info: 0 })
   })
 
   it('caps low-severity penalties at 10 but still counts every finding', () => {

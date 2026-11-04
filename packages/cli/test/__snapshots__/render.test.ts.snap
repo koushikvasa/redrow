@@ -16,6 +16,22 @@ Score 75/100, grade D
 "
 `;
 
+exports[`renderReport snapshots > declared exposure only 1`] = `
+"Red Row report: localhost/app_test (public)
+
+DECLARED EXPOSURE (1)
+
+  RR101  public.projects
+    Policy:  projects_read
+    Probe:   anon:select_all (allowed, 2 rows)
+    Impact:  Declared exposure: Anyone holding the public anon key can read 2 rows of public.projects through the API.
+    Fix:     None needed while this table is meant to be public. If it is not, remove it from publicTables.
+
+Score 100/100, grade A
+0 findings: 0 critical, 0 high, 0 medium, 0 low, plus 1 declared exposure. 3 tables, 12 probes, 1.2s.
+"
+`;
+
 exports[`renderReport snapshots > empty 1`] = `
 "Red Row report: localhost/app_test (public)
 

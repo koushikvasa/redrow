@@ -1,10 +1,11 @@
 import { toReport, type ScanOptions, type ScanResult, type Severity } from '@redrow/engine'
 import type { CliDeps, CliIO } from '../cli'
-import { loadConfig, type RedrowConfig } from '../config'
+import { DEFAULT_CONFIG_FILE, loadConfig, type RedrowConfig } from '../config'
 import {
   PRODUCTION_OVERRIDE_FLAG,
   assertAllowedTarget,
   describeDbError,
+  isAllowedHost,
   needsProductionOverride,
   parseConnection,
   type ConnectionTarget,
@@ -23,7 +24,7 @@ export interface ScanFlags {
   readonly db?: string
   readonly config?: string
   readonly only?: string
-  readonly severity: Severity
+  readonly severity: Exclude<Severity, 'info'>
   readonly json?: boolean
   readonly verbose?: boolean
   readonly color: boolean
@@ -44,6 +45,7 @@ function toScanOptions(flags: ScanFlags, config: RedrowConfig): ScanOptions {
     tables: parseOnly(flags.only) ?? config.tables,
     readOnly: flags.readOnly ?? false,
     ownerColumns: config.ownerColumns,
+    publicTables: config.publicTables,
     roles: { anon: config.roles.anon, authenticated: config.roles.authenticated },
     ...(userA === null || userB === null ? {} : { actors: { userA, userB } }),
   }
@@ -54,9 +56,26 @@ function resolveTarget(flags: ScanFlags, io: CliIO): ConnectionTarget {
   if (url === undefined || url === '') {
     throw new CliError('No database to scan. Pass --db <url> or set REDROW_DB_URL.')
   }
-  const target = parseConnection(url)
-  assertAllowedTarget(target, flags.iKnowWhatImDoing ?? false)
-  return target
+  return parseConnection(url)
+}
+
+/** A config file can hide findings, so that is always said out loud, and which file did it. */
+function announceDeclaredTables(flags: ScanFlags, config: RedrowConfig, io: CliIO): void {
+  if (config.publicTables.length === 0) return
+  const names = config.publicTables.map(sanitizeForTerminal).join(', ')
+  const source = sanitizeForTerminal(flags.config ?? DEFAULT_CONFIG_FILE)
+  io.stderr(`Declared public by ${source}: ${names}. Anon reads of these score nothing.\n`)
+}
+
+/** A config file can open up a host, so that is always said out loud too. */
+function announceTarget(target: ConnectionTarget, config: RedrowConfig, io: CliIO): void {
+  if (!needsProductionOverride(target)) return
+  const name = sanitizeForTerminal(target.label)
+  io.stderr(
+    isAllowedHost(target, config.allowHosts)
+      ? `Scanning ${name}: its host is listed in allowHosts in your config.\n`
+      : `Warning: scanning ${name} because you passed ${PRODUCTION_OVERRIDE_FLAG}.\n`,
+  )
 }
 
 function writeReport(result: ScanResult, flags: ScanFlags, io: CliIO): void {
@@ -94,11 +113,11 @@ const provedNothing = (result: ScanResult): boolean =>
 export async function runScan(flags: ScanFlags, io: CliIO, deps: CliDeps): Promise<number> {
   const target = resolveTarget(flags, io)
   const config = loadConfig(flags.config, io.cwd)
+  assertAllowedTarget(target, flags.iKnowWhatImDoing ?? false, config.allowHosts)
   // Status goes to stderr, so stdout stays valid JSON under --json.
   io.stderr(`${SAFETY_BANNER}\n${SIDE_EFFECTS_NOTE}\n`)
-  if (needsProductionOverride(target)) {
-    io.stderr(`Warning: scanning ${sanitizeForTerminal(target.label)} because you passed ${PRODUCTION_OVERRIDE_FLAG}.\n`)
-  }
+  announceTarget(target, config, io)
+  announceDeclaredTables(flags, config, io)
   const result = await runProbes(flags, config, target, io, deps)
   writeReport(result, flags, io)
   const code = exitCodeFor(result.findings, flags.severity)

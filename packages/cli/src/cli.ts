@@ -1,4 +1,4 @@
-import { ENGINE_VERSION, SEVERITIES, type ScanOptions, type ScanResult } from '@redrow/engine'
+import { ENGINE_VERSION, type ScanOptions, type ScanResult } from '@redrow/engine'
 import { Command, CommanderError, Option } from 'commander'
 import type { Sql } from 'postgres'
 import { runInit } from './commands/init'
@@ -46,14 +46,14 @@ function buildProgram(io: CliIO, deps: CliDeps, setExitCode: (code: number) => v
     .option('--only <tables>', 'comma-separated tables to scan')
     .addOption(
       new Option('--severity <level>', 'exit 1 on findings at or above this level')
-        .choices([...SEVERITIES].reverse())
+        .choices(['low', 'medium', 'high', 'critical'])
         .default('low'),
     )
     .option('--json', 'print the report as JSON')
     .option('--verbose', 'list every probe')
     .option('--no-color', 'disable color')
     .option('--read-only', 'skip all write probes')
-    .option('--i-know-what-im-doing', "scan a remote database whose name doesn't contain test, demo or staging")
+    .option('-y, --i-know-what-im-doing', "scan a remote database whose name doesn't contain test, demo or staging")
     .action(async (flags: ScanFlags) => {
       setExitCode(await runScan(flags, io, deps))
     })

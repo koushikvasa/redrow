@@ -29,7 +29,11 @@ const severityColor = (colors: Colors, severity: Severity): ((text: string) => s
     high: colors.red,
     medium: colors.yellow,
     low: colors.dim,
+    info: colors.cyan,
   })[severity]
+
+const groupLabel = (severity: Severity): string =>
+  severity === 'info' ? 'DECLARED EXPOSURE' : severity.toUpperCase()
 
 const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`
 
@@ -58,7 +62,7 @@ function renderFindings(report: Report, colors: Colors): string[] {
     const group = report.findings.filter((f) => f.severity === severity)
     if (group.length === 0) return []
     return [
-      severityColor(colors, severity)(`${severity.toUpperCase()} (${group.length})`),
+      severityColor(colors, severity)(`${groupLabel(severity)} (${group.length})`),
       '',
       ...group.flatMap((f) => renderFinding(f, colors)),
     ]
@@ -145,12 +149,16 @@ function renderWarnings(report: Report, colors: Colors): string[] {
 
 function renderSummary(report: Report, colors: Colors): string[] {
   const { summary } = report
-  const counts = SEVERITIES.map((s) => `${summary.bySeverity[s]} ${s}`).join(', ')
+  const counts = SEVERITIES.filter((s) => s !== 'info')
+    .map((s) => `${summary.bySeverity[s]} ${s}`)
+    .join(', ')
+  const declared = summary.bySeverity.info
   const scoreText = `Score ${summary.score}/100, grade ${summary.grade}`
   const passed = summary.total === 0
   return [
     passed ? colors.green(colors.bold(scoreText)) : colors.red(colors.bold(scoreText)),
-    `${plural(summary.total, 'finding')}: ${counts}. ` +
+    `${plural(summary.total, 'finding')}: ${counts}` +
+      `${declared === 0 ? '' : `, plus ${plural(declared, 'declared exposure')}`}. ` +
       `${plural(summary.tablesScanned, 'table')}, ${plural(summary.probesRun, 'probe')}` +
       `${summary.inconclusive === 0 ? '' : ` (${summary.inconclusive} inconclusive)`}, ` +
       `${(summary.durationMs / 1000).toFixed(1)}s.`,

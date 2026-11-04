@@ -1,6 +1,7 @@
 import type { Sql } from 'postgres'
 import { chooseActors, resolveActors } from './actors'
 import { mapConcurrent } from './concurrency'
+import { applyDeclaredExposure } from './declared'
 import { findingsFromProbes, mergeFindings, tableKey } from './dynamic'
 import { introspect } from './introspect'
 import { gatherTableStats, isProbeable, runTableProbes } from './probes'
@@ -97,7 +98,11 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
   const totals = new Map(
     introspection.tables.map((t, index) => [tableKey(t.schema, t.table), totalsFor(index)]),
   )
-  const findings = mergeFindings(staticFindings, findingsFromProbes(probes, { introspection, totals }))
+  const findings = applyDeclaredExposure(
+    mergeFindings(staticFindings, findingsFromProbes(probes, { introspection, totals })),
+    introspection,
+    opts.publicTables ?? [],
+  )
   return {
     engineVersion: ENGINE_VERSION,
     startedAt: new Date(startedAtMs).toISOString(),
@@ -118,6 +123,7 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
 }
 
 export { buildIntrospection, detectOwnerColumn, findSensitiveColumns, introspect } from './introspect'
+export { applyDeclaredExposure } from './declared'
 export { findingsFromProbes, mergeFindings } from './dynamic'
 export { gatherTableStats, runTableProbes } from './probes'
 export { REPORT_VERSION, toReport } from './report'
