@@ -16,12 +16,25 @@ Each claim links to the file that backs it. Measurements are from Nov 4, 2026.
 
 ### Data quality
 
-- **Watched by Sodabase:** `scan_runs`, `findings` and `probe_results` on `redrow-hq`, each with freshness and new-row monitors.
+- **Watched by Sodabase:** `scan_runs`, `findings` and `probe_results` on `redrow-hq`, each with freshness and new-row monitors, plus the rules below.
+- **Sodabase verdicts** (`check_trust`, Nov 4, 20:56 UTC): `scan_runs` trusted, `findings` trusted, `probe_results` unknown, because its freshness monitor has no history yet. There are no open issues, and a fresh content scan found no serious issues. Volume, schema and null checks report unknown on all three.
 - **Insert-only:** `anon` and `authenticated` get `SELECT` on the scan tables, and there are no update or delete policies ([grants](hq/supabase/migrations/0001_init.sql#L96-L101)). The one exception is that a signed-in user can add their own row to `projects`, and email signups are off.
 - **Constrained:** [`0001_init.sql`](hq/supabase/migrations/0001_init.sql) has foreign keys, `NOT NULL`, and checks on scores, grades, counts, severities, rule ids, actors, actions and outcomes.
 - **Continuous:** a [`pg_cron` sweep](hq/supabase/migrations/0006_sweep_retries.sql) stored 488 real scans from 13:41 to 19:20 UTC. The median gap was 60s for CareNote and 80s for HQ.
 - **Labeled history:** 14 days of backfilled scans are marked `source = 'seed'` by [the seed script](hq/scripts/seed-history.mjs), and the dashboard draws them dashed.
-- **Open Sodabase issues:** each watched table has one open new-rows issue, which makes its verdict `untrusted` for now. Freshness passes, and its content scan found no serious issues. The rows are real: the live sweep wrote 560 `scan_runs` rows on Nov 4, against 192 a day in the seeded history. [`demo:capture-fixed`](demo-target/scripts/capture-fixed-reference.mjs) also pauses the sweep briefly, but around its 17:58 UTC capture no CareNote gap passed 100 seconds, so that isn't the cause.
+- **New-row issues, marked expected:** Sodabase raised one issue on each table when volume rose, and we marked them expected, which cleared them and moved the verdicts from `untrusted` to those above. The rise is real: by 18:23 UTC the live sweep had taken `scan_runs` to 560 rows on Nov 4, against 192 a day in the seeded history. [`demo:capture-fixed`](demo-target/scripts/capture-fixed-reference.mjs) also pauses the sweep briefly, but around its 17:58 UTC capture no CareNote gap passed 100 seconds, so that isn't the cause.
+
+| Table | Rule | Nov 4 result | Watched by Sodabase |
+|---|---|---|---|
+| `scan_runs` | `score` between 0 and 100 | pass, 0 rows break it | yes |
+| `scan_runs` | `probes_run` greater than 0, on every row | pass, 0 rows break it | yes |
+| `findings` | every `scan_run_id` exists in `scan_runs` | pass, 0 rows break it | yes |
+| `findings` | `rows_exposed` is null or at least 0 | pass, 0 rows break it | yes |
+| `scan_runs` | no two rows for one `project_id` within 30 seconds | **fail**, 8 pairs, all sweeps between 13:41 and 14:13 UTC, none since | no |
+
+The last rule compares rows with each other, which Sodabase's `check_rule` couldn't express, so we measured it directly. It fails on those early rows, and HQ is insert-only, so they stay.
+
+Red Row's write attacks show who could corrupt data; Sodabase detects corruption after the fact. Prevention plus detection.
 
 ### Built to scale
 

@@ -11,7 +11,7 @@ export function TrustRow({ backend }: { readonly backend: BackendScore | null })
     <ul className="mt-4 flex flex-wrap gap-x-8 gap-y-2 border-y border-line py-2.5 text-sm text-[#c9c8c2]">
       <li className={itemClass}>
         <LockIcon isOpen={false} className="text-ok" />
-        Nothing persists, every attack is rolled back
+        Every attack is rolled back
       </li>
       <li className={itemClass}>
         <LockIcon isOpen={false} className="text-ok" />

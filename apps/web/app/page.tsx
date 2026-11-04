@@ -91,7 +91,7 @@ export default async function BoardPage() {
       <HowItWorks />
       <TrustRow backend={backend} />
       <div className="mt-6 mb-3 flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-dim">Attacked every minute</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-dim">Attacked about every minute</h2>
         <LiveRefresh />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
