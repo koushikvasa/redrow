@@ -56,7 +56,7 @@ function buildProgram(io: CliIO, deps: CliDeps, setExitCode: (code: number) => v
     .option('--json', 'print the report as JSON')
     .option('--html <file>', 'also write a self-contained HTML report')
     .option('--upload', 'send the report to HQ (needs REDROW_INGEST_URL and REDROW_INGEST_KEY)')
-    .option('--project <name>', 'the HQ project to upload to')
+    .option('--project <name>', 'the HQ project to upload to, and whose pinned actors to use')
     .option('--verbose', 'list every probe')
     .option('--no-color', 'disable color')
     .option('--read-only', 'skip all write probes')

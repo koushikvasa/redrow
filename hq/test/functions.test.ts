@@ -1,6 +1,19 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { bearerToken, safeEqual } from '../supabase/functions/_shared/auth'
 import { ingestBody } from '../supabase/functions/_shared/report-schema'
+import { TARGETS } from '../supabase/functions/_shared/targets'
+
+describe('TARGETS', () => {
+  // The edge function can't read the config file, so it holds a copy. This fails if they drift.
+  it('pins the same users as hq/redrow.config.json', () => {
+    const config = JSON.parse(readFileSync(new URL('../redrow.config.json', import.meta.url), 'utf8')) as {
+      actors: Record<string, { userA: string }>
+    }
+    for (const target of TARGETS) expect(target.userAEmail).toBe(config.actors[target.project]?.userA)
+    expect(TARGETS.map((t) => t.project)).toEqual(expect.arrayContaining(Object.keys(config.actors)))
+  })
+})
 
 describe('safeEqual', () => {
   it('accepts the exact secret only', () => {

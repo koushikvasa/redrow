@@ -1,4 +1,5 @@
 import type { Sql } from 'postgres'
+import { sqlStateOf } from './tx'
 import type { Actors } from './types'
 
 export interface OwnerCount {
@@ -26,14 +27,27 @@ function tallyOwners(perTable: readonly (readonly OwnerCount[])[]): OwnerTally[]
 /**
  * User A is the owner found across the most tables, then with the most rows, so
  * their probes cover the most. User B is the next one. Either may be missing.
+ * A pinned user is always user A, whatever they own.
  */
-export function chooseActors(perTable: readonly (readonly OwnerCount[])[]): Partial<Actors> {
-  const [first, second] = tallyOwners(perTable).sort(
-    (a, b) => b.tables - a.tables || b.rows - a.rows,
-  )
+export function chooseActors(perTable: readonly (readonly OwnerCount[])[], pinnedUserA?: string): Partial<Actors> {
+  const ranked = tallyOwners(perTable)
+    .sort((a, b) => b.tables - a.tables || b.rows - a.rows)
+    .map(({ owner }) => owner)
+  const [first, second] = pinnedUserA === undefined ? ranked : [pinnedUserA, ...ranked.filter((owner) => owner !== pinnedUserA)]
   return {
-    ...(first === undefined ? {} : { userA: first.owner }),
-    ...(second === undefined ? {} : { userB: second.owner }),
+    ...(first === undefined ? {} : { userA: first }),
+    ...(second === undefined ? {} : { userB: second }),
+  }
+}
+
+/** The id only. Undefined if there's no such user, or no auth schema this role can read. */
+export async function findUserIdByEmail(sql: Sql, email: string): Promise<string | undefined> {
+  try {
+    const rows = await sql<{ id: string }[]>`select id::text as id from auth.users where lower(email) = lower(${email}) limit 1`
+    return rows[0]?.id
+  } catch (error: unknown) {
+    if (sqlStateOf(error) === undefined) throw error
+    return undefined
   }
 }
 

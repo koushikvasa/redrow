@@ -1,11 +1,11 @@
 {
   "project": "CareNote demo",
-  "scannedAt": "2026-11-04T14:45:26.539Z",
+  "scannedAt": "2026-11-04T17:58:19.918Z",
   "score": 100,
   "grade": "A",
   "tablesScanned": 5,
   "probesRun": 45,
-  "durationMs": 3570,
+  "durationMs": 3734,
   "probes": [
     {
       "table_name": "appointments",

@@ -1,5 +1,5 @@
 import type { Sql } from 'postgres'
-import { chooseActors, resolveActors } from './actors'
+import { chooseActors, findUserIdByEmail, resolveActors } from './actors'
 import { mapConcurrent } from './concurrency'
 import { applyDeclaredExposure, isDeclared } from './declared'
 import { findingsFromProbes, mergeFindings, tableKey } from './dynamic'
@@ -82,8 +82,12 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
   const stats = await mapConcurrent(introspection.tables, TABLE_CONCURRENCY, (t) =>
     gatherTableStats(sql, t, opts.readOnly ?? false),
   )
+  const wantsPin = opts.actors === undefined && opts.userAEmail !== undefined
+  const pinnedUserA = wantsPin ? await findUserIdByEmail(sql, opts.userAEmail as string) : undefined
+  // No email here: reports get shared.
+  const pinWarnings = wantsPin && pinnedUserA === undefined ? ['The pinned user A was not found in auth.users, so user A was picked automatically.'] : []
   const actors: Actors =
-    opts.actors ?? (await resolveActors(sql, chooseActors(stats.map((s) => s.owners))))
+    opts.actors ?? (await resolveActors(sql, chooseActors(stats.map((s) => s.owners), pinnedUserA)))
 
   opts.onPhase?.('probes')
   const publicTables = opts.publicTables ?? []
@@ -131,7 +135,7 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
     findings,
     probes,
     actors,
-    warnings: [...roleWarnings, ...unprobeableWarnings(introspection.tables)],
+    warnings: [...roleWarnings, ...pinWarnings, ...unprobeableWarnings(introspection.tables)],
   }
 }
 

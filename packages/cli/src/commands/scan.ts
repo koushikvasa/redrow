@@ -47,7 +47,9 @@ const parseOnly = (only: string | undefined): readonly string[] | undefined =>
 
 export function toScanOptions(flags: ScanFlags, config: RedrowConfig): ScanOptions {
   const { userA, userB } = config.tenants
+  const pinnedEmail = flags.project === undefined ? undefined : config.actors[flags.project]?.userA
   return {
+    ...(pinnedEmail === undefined ? {} : { userAEmail: pinnedEmail }),
     schemas: config.schemas,
     tables: parseOnly(flags.only) ?? config.tables,
     readOnly: flags.readOnly ?? false,

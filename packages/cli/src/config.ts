@@ -68,6 +68,8 @@ const configSchema = z.strictObject({
   allowHosts: z.array(exactHostName).default([]),
   publicTables: z.array(z.string().min(1)).default([]),
   personas: z.record(z.string(), personaSchema).optional(),
+  // By project, like personas: one config can cover databases with different users.
+  actors: z.record(z.string(), z.strictObject({ userA: z.email() })).default({}),
 })
 
 export interface RedrowConfig {
@@ -78,6 +80,8 @@ export interface RedrowConfig {
   readonly ownerColumns: Readonly<Record<string, string>>
   readonly allowHosts: readonly string[]
   readonly publicTables: readonly string[]
+  /** By project name: the auth.users email to pin as user A. `tenants` wins over this. */
+  readonly actors: Readonly<Record<string, { readonly userA: string }>>
 }
 
 export const STARTER_CONFIG = `${JSON.stringify(
@@ -119,7 +123,7 @@ export function parseConfig(raw: unknown, source: string): RedrowConfig {
     })
     throw new CliError(`Invalid config in ${source}:\n${problems.join('\n')}`)
   }
-  const { schemas, tables, roles, tenants, ownerColumns, allowHosts, publicTables } = result.data
+  const { schemas, tables, roles, tenants, ownerColumns, allowHosts, publicTables, actors } = result.data
   return {
     schemas,
     tables,
@@ -128,6 +132,7 @@ export function parseConfig(raw: unknown, source: string): RedrowConfig {
     ownerColumns,
     allowHosts,
     publicTables,
+    actors,
   }
 }
 

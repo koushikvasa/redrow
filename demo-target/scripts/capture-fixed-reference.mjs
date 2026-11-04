@@ -24,7 +24,7 @@ const npmRun = (script) => {
 async function scanDemo() {
   const demo = postgres(process.env.DEMO_DB_URL, SSL_OPTIONS)
   try {
-    return await scan(demo, {})
+    return await scan(demo, { userAEmail: 'dr.ana@carenote.test' })
   } finally {
     await demo.end({ timeout: 5 })
   }

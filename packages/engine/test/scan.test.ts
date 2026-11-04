@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ENGINE_VERSION, scan } from '../src/index'
 import type { TableRow } from '../src/introspect'
 import engineManifest from '../package.json'
-import { fakeSql } from './fake-sql'
+import { fakeSql, serverError } from './fake-sql'
 
 const openTable: TableRow = {
   schema: 'public',
@@ -80,6 +80,55 @@ describe('scan', () => {
       respond: (text) => (text.includes('gen_random_uuid') ? [{ id: ids[next++] }] : undefined),
     })
     expect((await scan(sql.client)).actors).toEqual({ userA: 'id-1', userB: 'id-2' })
+  })
+
+  describe('pinning user A by email', () => {
+    const PINNED = '00000000-0000-4000-8000-0000000000aa'
+    const EMAIL = 'dr.ana@carenote.test'
+    const warningAbout = (warnings: readonly string[]) => warnings.filter((w) => w.includes('pinned'))
+
+    it('uses the id it finds, and asks for the id only', async () => {
+      const sql = fakeSql({ rowsByQuery: { 'auth.users where': [{ id: PINNED }] } })
+      const result = await scan(sql.client, { userAEmail: EMAIL })
+      expect(result.actors.userA).toBe(PINNED)
+      expect(warningAbout(result.warnings)).toEqual([])
+      const lookup = sql.queries.find((q) => q.text.includes('auth.users where'))
+      expect(lookup?.text).toContain('select id::text')
+      expect(lookup?.values).toEqual([EMAIL])
+    })
+
+    it('falls back to the automatic pick and warns when the email is not found', async () => {
+      const sql = fakeSql({ rowsByQuery: { 'auth.users where': [] } })
+      const result = await scan(sql.client, { userAEmail: EMAIL })
+      expect(result.actors.userA).toBeDefined()
+      expect(warningAbout(result.warnings)).toHaveLength(1)
+    })
+
+    it('never puts the email in a warning, because reports get shared', async () => {
+      const sql = fakeSql({ rowsByQuery: { 'auth.users where': [] } })
+      expect((await scan(sql.client, { userAEmail: EMAIL })).warnings.join()).not.toContain(EMAIL)
+    })
+
+    it('treats a missing auth schema as not found, not as a failed scan', async () => {
+      const sql = fakeSql({
+        respond: (text) => (text.includes('auth.users where') ? serverError('42P01', 'relation "auth.users" does not exist') : undefined),
+      })
+      const result = await scan(sql.client, { userAEmail: EMAIL })
+      expect(warningAbout(result.warnings)).toHaveLength(1)
+    })
+
+    it('lets explicit actors win, without looking anything up', async () => {
+      const sql = fakeSql({})
+      const actors = { userA: 'a', userB: 'b' }
+      expect((await scan(sql.client, { actors, userAEmail: EMAIL })).actors).toEqual(actors)
+      expect(sql.queries.some((q) => q.text.includes('auth.users where'))).toBe(false)
+    })
+
+    it('does not look anything up unless asked', async () => {
+      const sql = fakeSql({})
+      await scan(sql.client, {})
+      expect(sql.queries.some((q) => q.text.includes('auth.users where'))).toBe(false)
+    })
   })
 
   it('takes actors from the owners found in the tables', async () => {

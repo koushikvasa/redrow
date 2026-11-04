@@ -12,7 +12,7 @@ import { fixedReferenceFor, type FixedReference } from '@/lib/fixed-reference'
 import { personaFor, type Persona } from '@/lib/personas'
 import { loadBackendScore, loadProject, type BackendScore, type ProjectView } from '@/lib/queries'
 import { chartPoints } from '@/lib/series'
-import { blockedCount, plainHeadline, replayLines } from '@/lib/story'
+import { blockedCount, plainHeadline, replayLines, replaySignature } from '@/lib/story'
 import type { ScanRun } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -67,7 +67,7 @@ function LiveStory({ view, run, persona, backend }: LiveProps) {
         totals={run}
         lines={replayLines(probes, findings, persona)}
         blocked={blockedCount(probes)}
-        replayKey={run.id}
+        replayKey={replaySignature(probes, run.score)}
         replayTitle="Attack replay, latest scan"
       />
       <TrustRow backend={backend} />

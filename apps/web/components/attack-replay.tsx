@@ -9,7 +9,7 @@ const LINE_MS = 400
 type Props = {
   readonly lines: readonly ReplayLine[]
   readonly blocked: number
-  /** Changes when a new scan lands, which replays the strip. */
+  /** Changes when what got through changes, which replays the strip. */
   readonly replayKey: string
   readonly title: string
 }

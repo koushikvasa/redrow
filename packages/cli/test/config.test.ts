@@ -7,6 +7,26 @@ import { DEFAULT_CONFIG_FILE, STARTER_CONFIG, loadConfig, parseConfig } from '..
 const A = '00000000-0000-4000-8000-00000000000a'
 const B = '00000000-0000-4000-8000-00000000000b'
 
+describe('actors', () => {
+  it('accepts a pinned user A by email, per project', () => {
+    const parsed = parseConfig({ actors: { 'CareNote demo': { userA: 'dr.ana@carenote.test' } } }, 'c.json')
+    expect(parsed.actors['CareNote demo']?.userA).toBe('dr.ana@carenote.test')
+  })
+
+  it('defaults to nobody pinned', () => {
+    expect(parseConfig({}, 'c.json').actors).toEqual({})
+  })
+
+  it('rejects something that is not an email', () => {
+    expect(() => parseConfig({ actors: { p: { userA: 'not-an-email' } } }, 'c.json')).toThrow('actors')
+  })
+
+  it('pins Dr. Ana for CareNote in the shipped HQ config', () => {
+    const shipped = JSON.parse(readFileSync(new URL('../../../hq/redrow.config.json', import.meta.url), 'utf8'))
+    expect(parseConfig(shipped, 'hq').actors['CareNote demo']?.userA).toBe('dr.ana@carenote.test')
+  })
+})
+
 describe('personas', () => {
   const persona = { anon: 'A', anonShort: 'A', loggedIn: 'B', userA: 'C', userAOwn: 'D', others: 'E', tables: { t: { noun: 'n' } } }
 
@@ -36,6 +56,7 @@ describe('parseConfig', () => {
       ownerColumns: {},
       allowHosts: [],
       publicTables: [],
+      actors: {},
     })
   })
 

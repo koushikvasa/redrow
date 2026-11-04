@@ -183,6 +183,8 @@ interface ScanOptions {
     readonly tables?: readonly string[];
     /** Use these two users instead of picking them from the data. */
     readonly actors?: Actors;
+    /** Pin user A to this auth.users email, looked up for its id. If it isn't found, the pick is automatic and a warning says so. */
+    readonly userAEmail?: string;
     /** Tables anon is meant to read: a bare name means the public schema, or use `schema.table`. Covers anon reads only. */
     readonly publicTables?: readonly string[];
     /** Skip every probe for a role. Both default to true. */

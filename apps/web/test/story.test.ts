@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { columnGroups } from '../lib/matrix'
 import { GENERIC_PERSONA, personaFor, type Persona } from '../lib/personas'
-import { blockedCount, groupFindings, plainHeadline, replayLines } from '../lib/story'
+import { blockedCount, groupFindings, plainHeadline, replayLines, replaySignature } from '../lib/story'
 import type { FindingRow, ProbeRow, Severity } from '../lib/types'
 
 const DOCTORS: Persona = {
@@ -134,6 +134,34 @@ describe('replayLines', () => {
     )
     expect(lines.map((l) => l.result)).toEqual(['1 row', 'allowed'])
     expect(lines[1]?.action).toBe('Dr. Ana → add appointments as other doctors →')
+  })
+})
+
+describe('replaySignature', () => {
+  const base = [READ_80, probe('t', 'anon', 'select_all', 'denied', null)]
+
+  it('stays the same between sweeps when nothing changed', () => {
+    expect(replaySignature([...base].reverse(), 0)).toBe(replaySignature(base, 0))
+  })
+
+  it('ignores row counts, since the set of attacks is the same', () => {
+    const moreRows = [probe('patients', 'user_a', 'select_others', 'allowed', 81), base[1] as ProbeRow]
+    expect(replaySignature(moreRows, 0)).toBe(replaySignature(base, 0))
+  })
+
+  it('changes when the score changes', () => {
+    expect(replaySignature(base, 40)).not.toBe(replaySignature(base, 0))
+  })
+
+  it('changes when an attack starts or stops getting through', () => {
+    expect(replaySignature([...base, DELETE_240], 0)).not.toBe(replaySignature(base, 0))
+    expect(replaySignature([base[1] as ProbeRow], 0)).not.toBe(replaySignature(base, 0))
+  })
+
+  it('ignores reading your own rows and blocked attempts, which are not attacks that got through', () => {
+    const own = probe('patients', 'user_a', 'select_own', 'allowed', 40)
+    const blocked = probe('z', 'anon', 'delete_any', 'denied', null)
+    expect(replaySignature([...base, own, blocked], 0)).toBe(replaySignature(base, 0))
   })
 })
 

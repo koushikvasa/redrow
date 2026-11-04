@@ -1,3 +1,71 @@
+// src/tx.ts
+var PROBE_ROLES = /* @__PURE__ */ new Set(["anon", "authenticated"]);
+var SQLSTATE = /^[0-9A-Z]{5}$/;
+var RollbackSignal = class extends Error {
+};
+var ImpersonationError = class extends Error {
+};
+var TxSetupError = class extends Error {
+  code;
+  constructor(message, code) {
+    super(message);
+    this.code = code;
+  }
+};
+var NOT_ABOUT_THE_STATEMENT = /^(08|28|53|57P)/;
+function sqlStateOf(error) {
+  if (error instanceof TxSetupError) return void 0;
+  if (typeof error !== "object" || error === null || !("code" in error)) return void 0;
+  const { code } = error;
+  return typeof code === "string" && SQLSTATE.test(code) && !NOT_ABOUT_THE_STATEMENT.test(code) ? code : void 0;
+}
+function asSetupError(error) {
+  const hasServerCode = error instanceof Error && "code" in error && typeof error.code === "string" && SQLSTATE.test(error.code);
+  return hasServerCode ? new TxSetupError(error.message, error.code) : error;
+}
+async function inRolledBackTx(sql, fn, { readOnly = false } = {}) {
+  const mode = `isolation level repeatable read${readOnly ? " read only" : ""}`;
+  let out;
+  let isSetUp = false;
+  try {
+    await sql.begin(mode, async (tx) => {
+      await tx`set local statement_timeout = '5s'`;
+      await tx`set local lock_timeout = '1s'`;
+      isSetUp = true;
+      out = await fn(tx);
+      throw new RollbackSignal();
+    });
+  } catch (error) {
+    if (error instanceof RollbackSignal) return out;
+    throw isSetUp ? error : asSetupError(error);
+  }
+  throw new Error("The probe transaction ended without rolling back");
+}
+async function switchRole(tx, role) {
+  try {
+    await tx.unsafe(`set local role ${role}`);
+  } catch (error) {
+    if (sqlStateOf(error) === void 0) throw error;
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new ImpersonationError(
+      `The connecting role can't act as ${role}: ${reason}. Connect as the postgres role.`
+    );
+  }
+}
+async function impersonate(tx, role, sub) {
+  if (!PROBE_ROLES.has(role)) {
+    throw new Error(`Refusing to impersonate role outside the whitelist: ${role}`);
+  }
+  const claims = JSON.stringify(sub === void 0 ? { role } : { sub, role });
+  await switchRole(tx, role);
+  await tx`select set_config('request.jwt.claims', ${claims}, true),
+                  set_config('request.jwt.claim.sub', ${sub ?? ""}, true),
+                  set_config('request.jwt.claim.role', ${role}, true)`;
+}
+async function stopImpersonating(tx) {
+  await tx.unsafe("set local role none");
+}
+
 // src/actors.ts
 var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function tallyOwners(perTable) {
@@ -8,14 +76,22 @@ function tallyOwners(perTable) {
     return { owner, tables: entries.length, rows: entries.reduce((sum, { n }) => sum + n, 0) };
   });
 }
-function chooseActors(perTable) {
-  const [first, second] = tallyOwners(perTable).sort(
-    (a, b) => b.tables - a.tables || b.rows - a.rows
-  );
+function chooseActors(perTable, pinnedUserA) {
+  const ranked = tallyOwners(perTable).sort((a, b) => b.tables - a.tables || b.rows - a.rows).map(({ owner }) => owner);
+  const [first, second] = pinnedUserA === void 0 ? ranked : [pinnedUserA, ...ranked.filter((owner) => owner !== pinnedUserA)];
   return {
-    ...first === void 0 ? {} : { userA: first.owner },
-    ...second === void 0 ? {} : { userB: second.owner }
+    ...first === void 0 ? {} : { userA: first },
+    ...second === void 0 ? {} : { userB: second }
   };
+}
+async function findUserIdByEmail(sql, email) {
+  try {
+    const rows = await sql`select id::text as id from auth.users where lower(email) = lower(${email}) limit 1`;
+    return rows[0]?.id;
+  } catch (error) {
+    if (sqlStateOf(error) === void 0) throw error;
+    return void 0;
+  }
 }
 async function randomUserId(sql) {
   const rows = await sql`select gen_random_uuid()::text as id`;
@@ -680,74 +756,6 @@ async function introspect(sql, schemas, ownerColumns = {}) {
   }
 }
 
-// src/tx.ts
-var PROBE_ROLES = /* @__PURE__ */ new Set(["anon", "authenticated"]);
-var SQLSTATE = /^[0-9A-Z]{5}$/;
-var RollbackSignal = class extends Error {
-};
-var ImpersonationError = class extends Error {
-};
-var TxSetupError = class extends Error {
-  code;
-  constructor(message, code) {
-    super(message);
-    this.code = code;
-  }
-};
-var NOT_ABOUT_THE_STATEMENT = /^(08|28|53|57P)/;
-function sqlStateOf(error) {
-  if (error instanceof TxSetupError) return void 0;
-  if (typeof error !== "object" || error === null || !("code" in error)) return void 0;
-  const { code } = error;
-  return typeof code === "string" && SQLSTATE.test(code) && !NOT_ABOUT_THE_STATEMENT.test(code) ? code : void 0;
-}
-function asSetupError(error) {
-  const hasServerCode = error instanceof Error && "code" in error && typeof error.code === "string" && SQLSTATE.test(error.code);
-  return hasServerCode ? new TxSetupError(error.message, error.code) : error;
-}
-async function inRolledBackTx(sql, fn, { readOnly = false } = {}) {
-  const mode = `isolation level repeatable read${readOnly ? " read only" : ""}`;
-  let out;
-  let isSetUp = false;
-  try {
-    await sql.begin(mode, async (tx) => {
-      await tx`set local statement_timeout = '5s'`;
-      await tx`set local lock_timeout = '1s'`;
-      isSetUp = true;
-      out = await fn(tx);
-      throw new RollbackSignal();
-    });
-  } catch (error) {
-    if (error instanceof RollbackSignal) return out;
-    throw isSetUp ? error : asSetupError(error);
-  }
-  throw new Error("The probe transaction ended without rolling back");
-}
-async function switchRole(tx, role) {
-  try {
-    await tx.unsafe(`set local role ${role}`);
-  } catch (error) {
-    if (sqlStateOf(error) === void 0) throw error;
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new ImpersonationError(
-      `The connecting role can't act as ${role}: ${reason}. Connect as the postgres role.`
-    );
-  }
-}
-async function impersonate(tx, role, sub) {
-  if (!PROBE_ROLES.has(role)) {
-    throw new Error(`Refusing to impersonate role outside the whitelist: ${role}`);
-  }
-  const claims = JSON.stringify(sub === void 0 ? { role } : { sub, role });
-  await switchRole(tx, role);
-  await tx`select set_config('request.jwt.claims', ${claims}, true),
-                  set_config('request.jwt.claim.sub', ${sub ?? ""}, true),
-                  set_config('request.jwt.claim.role', ${role}, true)`;
-}
-async function stopImpersonating(tx) {
-  await tx.unsafe("set local role none");
-}
-
 // src/probes.ts
 var INSUFFICIENT_PRIVILEGE = "42501";
 var CONSTRAINTS_CHECKED_AFTER_RLS = /* @__PURE__ */ new Set([
@@ -1192,7 +1200,10 @@ async function scan(sql, opts = {}) {
     TABLE_CONCURRENCY,
     (t) => gatherTableStats(sql, t, opts.readOnly ?? false)
   );
-  const actors = opts.actors ?? await resolveActors(sql, chooseActors(stats.map((s) => s.owners)));
+  const wantsPin = opts.actors === void 0 && opts.userAEmail !== void 0;
+  const pinnedUserA = wantsPin ? await findUserIdByEmail(sql, opts.userAEmail) : void 0;
+  const pinWarnings = wantsPin && pinnedUserA === void 0 ? ["The pinned user A was not found in auth.users, so user A was picked automatically."] : [];
+  const actors = opts.actors ?? await resolveActors(sql, chooseActors(stats.map((s) => s.owners), pinnedUserA));
   opts.onPhase?.("probes");
   const publicTables = opts.publicTables ?? [];
   const settings = {
@@ -1232,7 +1243,7 @@ async function scan(sql, opts = {}) {
     findings,
     probes,
     actors,
-    warnings: [...roleWarnings, ...unprobeableWarnings(introspection.tables)]
+    warnings: [...roleWarnings, ...pinWarnings, ...unprobeableWarnings(introspection.tables)]
   };
 }
 export {

@@ -6,22 +6,9 @@ import postgres, { type Sql } from 'postgres'
 import { bearerToken, json, safeEqual } from '../_shared/auth.ts'
 import { scan, toReport, toScanRows } from '../_shared/engine/index.js'
 import { CONNECTION_OPTIONS, insertScan } from '../_shared/store.ts'
-
-interface Target {
-  readonly project: string
-  readonly urlEnv: string
-  /** The judges' board is meant to be readable by anon, so that read scores nothing. */
-  readonly publicTables: readonly string[]
-}
+import { TARGETS, type Target } from '../_shared/targets.ts'
 
 const STORE_URL_ENV = 'SUPABASE_DB_URL'
-
-// HQ is scanned through its session pooler, like any other target. A scan over
-// SUPABASE_DB_URL never finishes on the edge, though storing a result over it works.
-const TARGETS: readonly Target[] = [
-  { project: 'CareNote demo', urlEnv: 'DEMO_DB_URL', publicTables: [] },
-  { project: 'Red Row HQ (self-scan)', urlEnv: 'HQ_POOLER_DB_URL', publicTables: ['projects'] },
-]
 
 async function sweepTarget(hq: Sql, target: Target) {
   const found = await hq<{ id: string }[]>`select id from public.projects where name = ${target.project} limit 1`
@@ -36,13 +23,17 @@ async function sweepTarget(hq: Sql, target: Target) {
   if (url === undefined) throw new Error('database url not set')
   const source = postgres(url, CONNECTION_OPTIONS)
   try {
-    const result = await scan(source, { publicTables: target.publicTables })
+    const result = await scan(source, {
+      publicTables: target.publicTables,
+      ...(target.userAEmail === undefined ? {} : { userAEmail: target.userAEmail }),
+    })
+    for (const warning of result.warnings) console.warn('sweep warning', target.project, warning)
     // A scan where nothing could be tested proved nothing, and must not show up as clean.
     if (result.probes.length > 0 && result.probes.every((p) => p.outcome === 'inconclusive')) {
       throw new Error('every probe was inconclusive')
     }
     await insertScan(hq, toScanRows(toReport(result), projectId, 'sweep'))
-    return { project: target.project, score: result.score, grade: result.grade, durationMs: result.durationMs }
+    return { project: target.project, score: result.score, grade: result.grade, durationMs: result.durationMs, warnings: result.warnings.length }
   } finally {
     await source.end({ timeout: 2 })
   }

@@ -104,6 +104,18 @@ export function replayLines(probes: readonly ProbeRow[], findings: readonly Find
 
 export const blockedCount = (probes: readonly ProbeRow[]): number => probes.filter((p) => p.outcome === 'denied').length
 
+/**
+ * The replay's key: it types out again only when this changes. So a sweep that found the
+ * same thing just moves the ticker, and a real change, like a fix landing, gets the show.
+ */
+export function replaySignature(probes: readonly ProbeRow[], score: number): string {
+  const attacks = probes
+    .filter((p) => p.outcome === 'allowed' && p.action !== 'select_own')
+    .map((p) => `${p.table_name}:${p.actor}:${p.action}`)
+    .sort()
+  return `${score}|${attacks.join(',')}`
+}
+
 export interface FindingCard {
   readonly key: string
   readonly title: string
