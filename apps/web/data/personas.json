@@ -1,0 +1,29 @@
+{
+  "CareNote demo": {
+    "anon": "A stranger (not logged in)",
+    "anonShort": "Stranger",
+    "loggedIn": "Any logged-in doctor",
+    "userA": "Dr. Ana",
+    "userAOwn": "Dr. Ana, her own rows",
+    "others": "other doctors",
+    "tables": {
+      "patients": {
+        "noun": "patients"
+      },
+      "visit_notes": {
+        "noun": "notes"
+      },
+      "appointments": {
+        "noun": "appointments"
+      },
+      "invoices": {
+        "noun": "invoices"
+      },
+      "profiles": {
+        "noun": "profiles",
+        "strangerNoun": "clinician profiles",
+        "strangerReadNoun": "clinician emails"
+      }
+    }
+  }
+}

@@ -1,0 +1,326 @@
+{
+  "project": "CareNote demo",
+  "scannedAt": "2026-11-04T14:45:26.539Z",
+  "score": 100,
+  "grade": "A",
+  "tablesScanned": 5,
+  "probesRun": 45,
+  "durationMs": 3570,
+  "probes": [
+    {
+      "table_name": "appointments",
+      "actor": "anon",
+      "action": "select_all",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "appointments",
+      "actor": "anon",
+      "action": "update_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "appointments",
+      "actor": "anon",
+      "action": "delete_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "appointments",
+      "actor": "anon",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "appointments",
+      "actor": "user_a",
+      "action": "select_own",
+      "outcome": "allowed",
+      "row_count": 40
+    },
+    {
+      "table_name": "appointments",
+      "actor": "user_a",
+      "action": "select_others",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "appointments",
+      "actor": "user_a",
+      "action": "update_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "appointments",
+      "actor": "user_a",
+      "action": "delete_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "appointments",
+      "actor": "user_a",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "invoices",
+      "actor": "anon",
+      "action": "select_all",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "invoices",
+      "actor": "anon",
+      "action": "update_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "invoices",
+      "actor": "anon",
+      "action": "delete_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "invoices",
+      "actor": "anon",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "invoices",
+      "actor": "user_a",
+      "action": "select_own",
+      "outcome": "allowed",
+      "row_count": 40
+    },
+    {
+      "table_name": "invoices",
+      "actor": "user_a",
+      "action": "select_others",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "invoices",
+      "actor": "user_a",
+      "action": "update_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "invoices",
+      "actor": "user_a",
+      "action": "delete_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "invoices",
+      "actor": "user_a",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "patients",
+      "actor": "anon",
+      "action": "select_all",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "patients",
+      "actor": "anon",
+      "action": "update_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "patients",
+      "actor": "anon",
+      "action": "delete_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "patients",
+      "actor": "anon",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "patients",
+      "actor": "user_a",
+      "action": "select_own",
+      "outcome": "allowed",
+      "row_count": 40
+    },
+    {
+      "table_name": "patients",
+      "actor": "user_a",
+      "action": "select_others",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "patients",
+      "actor": "user_a",
+      "action": "update_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "patients",
+      "actor": "user_a",
+      "action": "delete_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "patients",
+      "actor": "user_a",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "profiles",
+      "actor": "anon",
+      "action": "select_all",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "profiles",
+      "actor": "anon",
+      "action": "update_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "profiles",
+      "actor": "anon",
+      "action": "delete_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "profiles",
+      "actor": "anon",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "profiles",
+      "actor": "user_a",
+      "action": "select_own",
+      "outcome": "allowed",
+      "row_count": 1
+    },
+    {
+      "table_name": "profiles",
+      "actor": "user_a",
+      "action": "select_others",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "profiles",
+      "actor": "user_a",
+      "action": "update_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "profiles",
+      "actor": "user_a",
+      "action": "delete_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "profiles",
+      "actor": "user_a",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "anon",
+      "action": "select_all",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "anon",
+      "action": "update_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "anon",
+      "action": "delete_any",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "anon",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "user_a",
+      "action": "select_own",
+      "outcome": "allowed",
+      "row_count": 120
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "user_a",
+      "action": "select_others",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "user_a",
+      "action": "update_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "user_a",
+      "action": "delete_other",
+      "outcome": "denied",
+      "row_count": 0
+    },
+    {
+      "table_name": "visit_notes",
+      "actor": "user_a",
+      "action": "insert_other",
+      "outcome": "denied",
+      "row_count": null
+    }
+  ]
+}

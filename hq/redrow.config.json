@@ -1,5 +1,22 @@
 {
-  "$comment": "For scanning HQ itself: npm run scan -- --config hq/redrow.config.json --db <url>. Separate from the root config, where publicTables would hide anon reads on anyone's own projects table.",
+  "$comment": "For scanning HQ itself: npm run scan -- --config hq/redrow.config.json --db <url>. Separate from the root config, where publicTables would hide anon reads on anyone's own projects table. personas names the attackers on the dashboard, by project; run npm run sync:web after changing them.",
   "allowHosts": ["aws-0-us-east-1.pooler.supabase.com/postgres.hwcqrzagivtototosstn"],
-  "publicTables": ["projects"]
+  "publicTables": ["projects"],
+  "personas": {
+    "CareNote demo": {
+      "anon": "A stranger (not logged in)",
+      "anonShort": "Stranger",
+      "loggedIn": "Any logged-in doctor",
+      "userA": "Dr. Ana",
+      "userAOwn": "Dr. Ana, her own rows",
+      "others": "other doctors",
+      "tables": {
+        "patients": { "noun": "patients" },
+        "visit_notes": { "noun": "notes" },
+        "appointments": { "noun": "appointments" },
+        "invoices": { "noun": "invoices" },
+        "profiles": { "noun": "profiles", "strangerNoun": "clinician profiles", "strangerReadNoun": "clinician emails" }
+      }
+    }
+  }
 }

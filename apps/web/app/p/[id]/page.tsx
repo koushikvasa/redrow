@@ -2,28 +2,34 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FindingsList } from '@/components/findings-list'
+import { FixedToggle } from '@/components/fixed-toggle'
 import { LeakMatrix } from '@/components/leak-matrix'
 import { LiveRefresh, ScannedAgo } from '@/components/live'
+import { ProjectHero } from '@/components/project-hero'
 import { ScoreChart } from '@/components/score-chart'
-import { ScoreDial } from '@/components/score-dial'
-import { SeverityCounts } from '@/components/severity-counts'
-import { loadProject, type ProjectView } from '@/lib/queries'
+import { TrustRow } from '@/components/trust-row'
+import { fixedReferenceFor, type FixedReference } from '@/lib/fixed-reference'
+import { personaFor, type Persona } from '@/lib/personas'
+import { loadBackendScore, loadProject, type BackendScore, type ProjectView } from '@/lib/queries'
 import { chartPoints } from '@/lib/series'
+import { blockedCount, plainHeadline, replayLines } from '@/lib/story'
+import type { ScanRun } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DAY_MS = 86_400_000
 const LONG_DAYS = 14
+const NO_FINDINGS = { critical: 0, high: 0, medium: 0, low: 0 }
 
 type Params = Promise<{ readonly id: string }>
 
 export const metadata: Metadata = { title: 'Red Row: project' }
 
-function verdict(view: ProjectView): string {
-  const counted = view.latest === null ? 0 : view.latest.critical + view.latest.high + view.latest.medium + view.latest.low
-  if (counted === 0) return 'No leaks proven.'
-  return `${counted} ${counted === 1 ? 'finding' : 'findings'}. ${view.latest?.score === 0 ? 'This database leaks.' : 'Still leaking.'}`
+function subline(run: ScanRun): string {
+  const counted = run.critical + run.high + run.medium + run.low
+  const findings = `${counted} ${counted === 1 ? 'finding' : 'findings'}`
+  return `${findings} · ${run.tables_scanned} tables, ${run.probes_run} attacks, ${(run.duration_ms / 1000).toFixed(1)}s`
 }
 
 function Charts({ view }: { readonly view: ProjectView }) {
@@ -45,15 +51,77 @@ function Charts({ view }: { readonly view: ProjectView }) {
   )
 }
 
+type LiveProps = { readonly view: ProjectView; readonly run: ScanRun; readonly persona: Persona; readonly backend: BackendScore | null }
+
+function LiveStory({ view, run, persona, backend }: LiveProps) {
+  const { project, findings, probes } = view
+  return (
+    <>
+      <ProjectHero
+        projectName={project.name}
+        host={project.host_masked}
+        score={run.score}
+        grade={run.grade}
+        headline={plainHeadline(probes, findings, persona)}
+        subline={subline(run)}
+        totals={run}
+        lines={replayLines(probes, findings, persona)}
+        blocked={blockedCount(probes)}
+        replayKey={run.id}
+        replayTitle="Attack replay, latest scan"
+      />
+      <TrustRow backend={backend} />
+      <LeakMatrix probes={probes} findings={findings} persona={persona} />
+      <Charts view={view} />
+      <FindingsList findings={findings} persona={persona} />
+    </>
+  )
+}
+
+type FixedProps = {
+  readonly view: ProjectView
+  readonly reference: FixedReference
+  readonly persona: Persona
+  readonly backend: BackendScore | null
+}
+
+function FixedStory({ view, reference, persona, backend }: FixedProps) {
+  const date = new Date(reference.scannedAt).toISOString().slice(0, 10)
+  return (
+    <>
+      <ProjectHero
+        projectName={view.project.name}
+        host={view.project.host_masked}
+        score={reference.score}
+        grade={reference.grade}
+        headline="Every attack blocked."
+        subline={`0 findings · ${reference.tablesScanned} tables, ${reference.probesRun} attacks`}
+        totals={NO_FINDINGS}
+        lines={[]}
+        blocked={blockedCount(reference.probes)}
+        replayKey="fixed"
+        replayTitle="The same attacks, with the fix applied"
+      />
+      <p className="mt-3 text-sm text-dim">
+        A real scan of this database with the fix applied, on {date}. The live demo stays leaky, so the attack can be shown again.
+      </p>
+      <TrustRow backend={backend} />
+      <LeakMatrix probes={reference.probes} findings={[]} persona={persona} />
+    </>
+  )
+}
+
 export default async function ProjectPage({ params }: { readonly params: Params }) {
   const { id } = await params
   if (!UUID.test(id)) notFound()
-  const view = await loadProject(id)
+  const [view, backend] = await Promise.all([loadProject(id), loadBackendScore()])
   if (view === null) notFound()
-  const { project, latest, findings, probes } = view
+  const { project, latest } = view
+  const persona = personaFor(project.name)
+  const reference = latest === null ? null : fixedReferenceFor(project.name, latest.score)
   return (
     <main>
-      <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <Link href="/" className="text-sm text-dim hover:text-ink">
           ← All projects
         </Link>
@@ -62,30 +130,14 @@ export default async function ProjectPage({ params }: { readonly params: Params 
           <LiveRefresh projectId={project.id} />
         </div>
       </div>
-      {latest === null ? (
-        <p className="mt-10 text-xl text-dim">{project.name} has no scans yet.</p>
-      ) : (
-        <>
-          <section className="grid items-center gap-8 py-6 lg:grid-cols-[380px_1fr] lg:gap-14">
-            <div className="flex justify-center">
-              <ScoreDial score={latest.score} grade={latest.grade} size="lg" />
-            </div>
-            <div>
-              <p className="text-dim [overflow-wrap:anywhere]">
-                {project.name} · {project.host_masked}
-              </p>
-              <h1 className={`mt-1 mb-5 text-4xl font-bold leading-tight sm:text-5xl ${latest.score >= 90 ? 'text-ok' : ''}`}>{verdict(view)}</h1>
-              <SeverityCounts run={latest} />
-              <p className="mt-3 text-sm text-dim">
-                {latest.tables_scanned} tables, {latest.probes_run} probes, {(latest.duration_ms / 1000).toFixed(1)}s, from {latest.source}
-              </p>
-            </div>
-          </section>
-          <LeakMatrix probes={probes} findings={findings} />
-          <Charts view={view} />
-          <FindingsList findings={findings} />
-        </>
-      )}
+      {latest === null ? <p className="mt-10 text-xl text-dim">{project.name} has no scans yet.</p> : null}
+      {latest !== null && reference === null ? <LiveStory view={view} run={latest} persona={persona} backend={backend} /> : null}
+      {latest !== null && reference !== null ? (
+        <FixedToggle
+          live={<LiveStory view={view} run={latest} persona={persona} backend={backend} />}
+          fixed={<FixedStory view={view} reference={reference} persona={persona} backend={backend} />}
+        />
+      ) : null}
     </main>
   )
 }

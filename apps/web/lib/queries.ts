@@ -67,6 +67,26 @@ async function loadCard(db: Client, project: Project): Promise<BoardCard> {
   }
 }
 
+export interface BackendScore {
+  readonly id: string
+  readonly score: number
+}
+
+const SELF_SCAN_PROJECT = 'Red Row HQ (self-scan)'
+
+/** This dashboard's own database, as scanned by its own tool. */
+export async function loadBackendScore(): Promise<BackendScore | null> {
+  const db = client()
+  const projects = rows<Pick<Project, 'id'>>(await db.from('projects').select('id').eq('name', SELF_SCAN_PROJECT).limit(1), 'the self-scan')
+  const id = projects[0]?.id
+  if (id === undefined) return null
+  const latest = rows<Pick<ScanRun, 'score'>>(
+    await db.from('scan_runs').select('score').eq('project_id', id).order('created_at', { ascending: false }).limit(1),
+    'the self-scan',
+  )
+  return latest[0] === undefined ? null : { id, score: latest[0].score }
+}
+
 export async function loadBoard(): Promise<BoardCard[]> {
   const db = client()
   const projects = rows<Project>(

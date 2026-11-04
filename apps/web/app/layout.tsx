@@ -25,11 +25,7 @@ export default function RootLayout({ children }: { readonly children: ReactNode 
             </a>
           </header>
           {children}
-          <footer className="mt-12 flex flex-wrap justify-between gap-4 border-t border-line pt-4 text-sm text-dim">
-            <span>
-              <strong className="font-semibold text-ink">Nothing persists, and we only ever record counts.</strong> Every probe
-              runs in a transaction that is rolled back.
-            </span>
+          <footer className="mt-12 flex justify-end border-t border-line pt-4 text-sm text-dim">
             <span>Open source, MIT</span>
           </footer>
         </div>

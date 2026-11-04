@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -6,6 +6,25 @@ import { DEFAULT_CONFIG_FILE, STARTER_CONFIG, loadConfig, parseConfig } from '..
 
 const A = '00000000-0000-4000-8000-00000000000a'
 const B = '00000000-0000-4000-8000-00000000000b'
+
+describe('personas', () => {
+  const persona = { anon: 'A', anonShort: 'A', loggedIn: 'B', userA: 'C', userAOwn: 'D', others: 'E', tables: { t: { noun: 'n' } } }
+
+  it('accepts a persona map, which only the dashboard reads', () => {
+    expect(() => parseConfig({ personas: { 'CareNote demo': persona } }, 'c.json')).not.toThrow()
+  })
+
+  it('rejects a typo, where it is made', () => {
+    expect(() => parseConfig({ personas: { p: { ...persona, userB: 'x' } } }, 'c.json')).toThrow('personas')
+    const { others: _others, ...missing } = persona
+    expect(() => parseConfig({ personas: { p: missing } }, 'c.json')).toThrow('others')
+  })
+
+  it('accepts the shipped HQ config', () => {
+    const shipped = JSON.parse(readFileSync(new URL('../../../hq/redrow.config.json', import.meta.url), 'utf8'))
+    expect(parseConfig(shipped, 'hq/redrow.config.json').publicTables).toEqual(['projects'])
+  })
+})
 
 describe('parseConfig', () => {
   it('fills in defaults for an empty object', () => {

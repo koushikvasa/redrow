@@ -21,6 +21,26 @@ const exactHostName = z
     'must be one exact host, or host/login, with no wildcard, port or scheme',
   )
 
+// Only the dashboard reads these. They're checked here so a typo fails where it's made.
+const personaSchema = z.strictObject({
+  anon: z.string().min(1),
+  anonShort: z.string().min(1),
+  loggedIn: z.string().min(1),
+  userA: z.string().min(1),
+  userAOwn: z.string().min(1),
+  others: z.string().min(1),
+  tables: z
+    .record(
+      z.string(),
+      z.strictObject({
+        noun: z.string().min(1),
+        strangerNoun: z.string().min(1).optional(),
+        strangerReadNoun: z.string().min(1).optional(),
+      }),
+    )
+    .default({}),
+})
+
 const configSchema = z.strictObject({
   $comment: comment,
   schemas: z.array(z.string().min(1)).min(1).default(['public']),
@@ -47,6 +67,7 @@ const configSchema = z.strictObject({
   ownerColumns: z.record(z.string(), z.string().min(1)).default({}),
   allowHosts: z.array(exactHostName).default([]),
   publicTables: z.array(z.string().min(1)).default([]),
+  personas: z.record(z.string(), personaSchema).optional(),
 })
 
 export interface RedrowConfig {

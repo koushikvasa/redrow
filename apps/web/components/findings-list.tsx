@@ -1,58 +1,86 @@
+import type { Persona } from '@/lib/personas'
+import { groupFindings, type FindingCard } from '@/lib/story'
 import type { FindingRow, Severity } from '@/lib/types'
 import { CopyButton } from './copy-button'
 
-const GROUPS: readonly { readonly severity: Severity; readonly title: string; readonly color: string; readonly edge: string }[] = [
-  { severity: 'critical', title: 'Critical', color: 'text-leak', edge: 'border-l-leak' },
-  { severity: 'high', title: 'High', color: 'text-high', edge: 'border-l-high' },
-  { severity: 'medium', title: 'Medium', color: 'text-amber', edge: 'border-l-amber' },
-  { severity: 'low', title: 'Low', color: 'text-dim', edge: 'border-l-faint' },
-  { severity: 'info', title: 'Declared exposure', color: 'text-info', edge: 'border-l-info' },
-]
+const SEVERITY_STYLE: Readonly<Record<Severity, { readonly label: string; readonly badge: string; readonly edge: string }>> = {
+  critical: { label: 'Critical', badge: 'border-leak text-leak', edge: 'border-l-leak' },
+  high: { label: 'High', badge: 'border-high text-high', edge: 'border-l-high' },
+  medium: { label: 'Medium', badge: 'border-amber text-amber', edge: 'border-l-amber' },
+  low: { label: 'Low', badge: 'border-faint text-dim', edge: 'border-l-faint' },
+  info: { label: 'Declared', badge: 'border-info text-info', edge: 'border-l-info' },
+}
 
-function FindingCard({ finding, edge }: { readonly finding: FindingRow; readonly edge: string }) {
-  const where = finding.table_name === null ? finding.schema_name : `${finding.schema_name}.${finding.table_name}`
+function Fix({ hint }: { readonly hint: string }) {
   return (
-    <article className={`mb-2 border border-l-[3px] border-line bg-panel px-5 py-4 ${edge}`}>
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <span className="font-bold">{finding.rule_id}</span>
-        <span className="[overflow-wrap:anywhere]">{where}</span>
-        <span className="text-dim">{finding.title}</span>
-        {finding.rows_exposed === null ? null : (
-          <span className="ml-auto text-sm tabular-nums text-dim">
-            {finding.rows_exposed} {finding.rows_exposed === 1 ? 'row' : 'rows'}
-          </span>
-        )}
-      </div>
-      <p className="mt-2 text-[#c9c8c2] [overflow-wrap:anywhere]">{finding.detail}</p>
-      <div className="mt-3 flex items-start gap-3">
+    <details className="group mt-2">
+      <summary className="w-fit cursor-pointer text-sm text-dim hover:text-ink">Show the fix</summary>
+      <div className="mt-2 flex items-start gap-3">
         <code className="block min-w-0 flex-1 whitespace-pre-wrap border border-line bg-[#07080a] px-3 py-2 text-sm text-[#a9d5b5] [overflow-wrap:anywhere]">
-          {finding.fix_hint}
+          {hint}
         </code>
-        <CopyButton text={finding.fix_hint} />
+        <CopyButton text={hint} />
       </div>
+    </details>
+  )
+}
+
+function SubFinding({ finding }: { readonly finding: FindingRow }) {
+  return (
+    <li className="border-t border-line py-3 first:border-t-0 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+        <p className="min-w-0 flex-1 [overflow-wrap:anywhere]">{finding.detail}</p>
+        <span className="whitespace-nowrap text-xs text-faint">{finding.rule_id}</span>
+      </div>
+      <Fix hint={finding.fix_hint} />
+    </li>
+  )
+}
+
+function TableCard({ card }: { readonly card: FindingCard }) {
+  const style = SEVERITY_STYLE[card.worst]
+  const problems = card.problems === 0 ? '' : `, ${card.problems} ${card.problems === 1 ? 'problem' : 'problems'}`
+  return (
+    <article className={`mb-3 border border-l-[3px] border-line bg-panel px-4 py-4 sm:px-5 ${style.edge}`}>
+      <header className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className={`border px-2 py-0.5 text-xs font-bold uppercase tracking-[0.1em] ${style.badge}`}>{style.label}</span>
+        <h3 className="text-lg font-bold [overflow-wrap:anywhere]">
+          {card.title}: <span className="font-normal text-[#c9c8c2]">{`${card.phrase}${problems}`}</span>
+        </h3>
+      </header>
+      <ul>
+        {/* By position, not row id: every scan has new ids, and an opened fix should stay open. */}
+        {card.findings.map((finding, index) => (
+          <SubFinding key={`${finding.rule_id}-${index}`} finding={finding} />
+        ))}
+      </ul>
     </article>
   )
 }
 
-export function FindingsList({ findings }: { readonly findings: readonly FindingRow[] }) {
+function Hints({ hints }: { readonly hints: readonly FindingRow[] }) {
+  return (
+    <details className="mt-5 border border-line bg-panel/60 px-4 py-3 sm:px-5">
+      <summary className="cursor-pointer font-semibold text-dim hover:text-ink">Performance hints ({hints.length})</summary>
+      <ul className="mt-3">
+        {hints.map((finding, index) => (
+          <SubFinding key={`${finding.rule_id}-${index}`} finding={finding} />
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+export function FindingsList({ findings, persona }: { readonly findings: readonly FindingRow[]; readonly persona: Persona }) {
+  const { cards, hints } = groupFindings(findings, persona)
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-dim">Findings</h2>
-      {findings.length === 0 ? <p className="mt-4 text-xl text-ok">No findings.</p> : null}
-      {GROUPS.map(({ severity, title, color, edge }) => {
-        const group = findings.filter((f) => f.severity === severity).sort((a, b) => a.rule_id.localeCompare(b.rule_id))
-        if (group.length === 0) return null
-        return (
-          <div key={severity} className="mt-6">
-            <h3 className={`mb-3 flex items-baseline gap-3 text-xl font-bold ${color}`}>
-              {title} <small className="text-base font-normal text-dim">{group.length}</small>
-            </h3>
-            {group.map((finding) => (
-              <FindingCard key={finding.id} finding={finding} edge={edge} />
-            ))}
-          </div>
-        )
-      })}
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-dim">Findings, by table</h2>
+      {findings.length === 0 ? <p className="text-xl text-ok">No findings.</p> : null}
+      {cards.map((card) => (
+        <TableCard key={card.key} card={card} />
+      ))}
+      {hints.length > 0 ? <Hints hints={hints} /> : null}
     </section>
   )
 }

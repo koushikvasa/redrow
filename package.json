@@ -21,7 +21,9 @@
     "fix": "node packages/cli/dist/index.js fix",
     "demo:reset": "node demo-target/scripts/apply.mjs demo-target/supabase/reset.sql demo-target/supabase/leaky.sql && node demo-target/scripts/seed.mjs",
     "demo:fix-reference": "node demo-target/scripts/apply.mjs demo-target/supabase/fixed.sql",
-    "sync:engine": "npm run build -w @redrow/engine && node scripts/sync-engine.mjs"
+    "sync:engine": "npm run build -w @redrow/engine && node scripts/sync-engine.mjs",
+    "sync:web": "node scripts/sync-web-data.mjs",
+    "demo:capture-fixed": "node demo-target/scripts/capture-fixed-reference.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

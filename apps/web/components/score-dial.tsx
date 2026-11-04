@@ -35,8 +35,9 @@ function useCountUp(target: number): number {
 
 export function ScoreDial({ score, grade, size }: { readonly score: number; readonly grade: string; readonly size: 'lg' | 'sm' }) {
   const shown = useCountUp(score)
-  const dimension = size === 'lg' ? 'w-[340px] sm:w-[380px]' : 'w-[210px]'
-  const number = size === 'lg' ? 'text-[108px] sm:text-[124px]' : 'text-[62px]'
+  // Smaller on a phone, so the plain-English headline isn't pushed off the first screen.
+  const dimension = size === 'lg' ? 'w-[230px] sm:w-[380px]' : 'w-[210px]'
+  const number = size === 'lg' ? 'text-[72px] sm:text-[124px]' : 'text-[62px]'
   return (
     <div
       className={`band-${bandFor(score)} relative aspect-square shrink-0 ${dimension}`}
