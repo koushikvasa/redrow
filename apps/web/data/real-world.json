@@ -3,8 +3,8 @@
   "apps": [
     {
       "file": "App_a.html",
-      "name": "App A",
-      "purpose": "Group expenses, judging by its tables",
+      "name": "Group Expenses",
+      "purpose": "Named from its tables; the real name wasn't recorded",
       "score": 93,
       "grade": "A",
       "critical": 0,
@@ -19,8 +19,8 @@
     },
     {
       "file": "App_C.html",
-      "name": "App C",
-      "purpose": "Tutor bookings, judging by its tables",
+      "name": "Tutor Bookings",
+      "purpose": "Named from its tables; the real name wasn't recorded",
       "score": 58,
       "grade": "D",
       "critical": 0,
@@ -38,8 +38,8 @@
     },
     {
       "file": "App_d.html",
-      "name": "App D",
-      "purpose": "A journal with sharing, judging by its tables",
+      "name": "Shared Journal",
+      "purpose": "Named from its tables; the real name wasn't recorded",
       "score": 28,
       "grade": "F",
       "critical": 2,

@@ -10,7 +10,7 @@ import { loadBackendScore, loadBoard, type BoardCard } from '@/lib/queries'
 export const dynamic = 'force-dynamic'
 
 const REPO = 'https://github.com/koushikvasa/redrow'
-const COMMAND = 'npm run scan -- --db "..." -y'
+const COMMAND = 'npx redrow scan --db "<session pooler url>" --read-only -y'
 
 const BLURBS: Readonly<Record<string, string>> = {
   'CareNote demo': 'A clinic notes app, built to look AI-generated. It leaks on purpose.',
@@ -40,6 +40,7 @@ function Hero() {
             Get it on GitHub
           </a>
         </div>
+        <p className="mt-2 text-sm text-dim">Find your Session pooler URL in Supabase, under Connect. Needs Node 20.12+.</p>
       </div>
     </section>
   )
