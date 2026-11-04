@@ -4,6 +4,7 @@ coverage
 .env
 *.local
 redrow-report*.json
+redrow-report*.html
 redrow-fix-*.sql
 /supabase/
 **/supabase/.temp/

@@ -345,5 +345,26 @@ interface ScanResult {
 
 ## 6. Fix generation (`redrow fix`)
 
-Input: `report.json` + catalog text for affected tables (columns, existing policies). Never row data.
-Prompt Claude to return **one SQL migration** that: enables RLS where missing, replaces leaky policies with owner-scoped ones using `(select auth.uid())`, adds `with check`, sets `security_invoker = true` on views, revokes `execute` on risky SECURITY DEFINER functions from `anon, authenticated, public`, because they skip RLS and a signed-in user who could still call one would bypass the new policies, adds missing indexes. Wrap in `begin; … commit;`, comment each block with the rule ID it fixes. Write to `redrow-fix-<timestamp>.sql`. Only apply with `--apply` (then rescan automatically).
+`redrow fix --from report.json [--db url] [--apply] [--out file.sql] [--config path] [-y]`
+
+Input: `report.json` + catalog text for affected tables (columns, existing policies). Never row data. The report's host and database must match the connection, and the production guard applies as it does for `scan`.
+
+The migration: enables RLS where missing, replaces leaky policies with owner-scoped ones using `(select auth.uid())`, adds `with check`, sets `security_invoker = true` on views, revokes `execute` on risky SECURITY DEFINER functions from `anon, authenticated, public`, because they skip RLS and a signed-in user who could still call one would bypass the new policies, adds missing indexes. Wrapped in `begin; … commit;`, each block commented with the rule ID it fixes. Written to `redrow-fix-<timestamp>.sql`, or `--out`. Only applied with `--apply`, which then rescans and prints before → after.
+
+Two sources, same checks:
+- **Claude**, when `ANTHROPIC_API_KEY` is set. Model from `REDROW_MODEL`, default `claude-sonnet-5-5`. Requests allow the API's server-side fallback, in case a safety classifier declines a prompt about attacking access control. A rejected migration gets one retry that says why. An API failure gets none. Either way it falls back to templates, with a warning.
+- **Rule-based templates**, otherwise. They're built only from rule ids and the database's catalog, so nothing in the report file becomes SQL. Findings no template can safely fix, such as an open read on a table with no owner column, are listed on stderr. A `publicTables` table keeps its read policies.
+
+The SQL can come from a model, and names in the prompt can be written by anyone who can create a table, so it's treated as hostile:
+1. **Parse.** `src/fix/migration.ts` splits it the way Postgres would (strings, dollar quotes, nested comments, a comment ending at `\r`) and checks every statement against an allowlist: enable or force RLS, create, alter or drop policy, `security_invoker = true`, non-unique indexes on plain columns, and revoke. No `cascade`, no `begin`, `commit`, `set`, DML or `grant` in the body, new policies must say `to authenticated`, and no expression may be literally `true`. Index expressions are out because they run per row during validation, where they could call a function or put a row's value in an error, and that error goes back to the model on a retry.
+2. **Scope (model SQL only).** `src/fix/scope.ts`: every statement must name a schema-qualified object the report found a problem with, and may not alter or drop a restrictive policy. Templates can't need this, since they only name what's in the catalog.
+3. **Validate.** Each statement runs inside a transaction that is always rolled back. It takes real locks while it runs, and the 5s statement timeout applies, so a very large table can fail validation on its index.
+4. **Execute one at a time.** Statements are sent over the extended protocol, where the server refuses more than one command per message. `begin` and `commit` from the text are never sent; the driver's transaction does that. If the parser were ever fooled, a `commit` still couldn't end the rolled-back validation.
+
+The file is written from the parsed statements, not the input, so it can't hold SQL that wasn't checked.
+
+**What this doesn't stop:** these checks judge a statement's kind and target, not whether its logic is right. A model could write `using (1 = 1)` on a reported table. It would validate, and `--apply` would commit it. The rescan then reports it and the command exits 1, but that's after the commit. So read the file before `--apply` when it came from a model. Rescanning before the commit would mean running probes inside one transaction, which the engine doesn't support.
+
+### HTML report (`redrow scan --html <file>`)
+
+One self-contained file: inline CSS and JS, and a `default-src 'none'` CSP so the browser enforces "no external requests". Every string is HTML-escaped and stripped of control characters, because names come from the scanned database. The matrix's columns are anon (read, insert, update, delete), user A's own rows (read), and user A against other users' rows (read, insert, update, delete). The probes use one signed-in attacker, so user B appears as the owner of the rows being attacked, not as a separate column group.

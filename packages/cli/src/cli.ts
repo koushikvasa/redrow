@@ -1,6 +1,7 @@
 import { ENGINE_VERSION, type ScanOptions, type ScanResult } from '@redrow/engine'
 import { Command, CommanderError, Option } from 'commander'
 import type { Sql } from 'postgres'
+import { runFix, type FixDeps, type FixFlags } from './commands/fix'
 import { runInit } from './commands/init'
 import { runScan, type ScanFlags } from './commands/scan'
 import type { Connection, ConnectionTarget } from './connection'
@@ -21,6 +22,7 @@ export interface CliIO {
 export interface CliDeps {
   readonly connect: (target: ConnectionTarget) => Connection
   readonly scan: (sql: Sql, options: ScanOptions) => Promise<ScanResult>
+  readonly fix?: FixDeps
 }
 
 function buildProgram(io: CliIO, deps: CliDeps, setExitCode: (code: number) => void): Command {
@@ -50,12 +52,26 @@ function buildProgram(io: CliIO, deps: CliDeps, setExitCode: (code: number) => v
         .default('low'),
     )
     .option('--json', 'print the report as JSON')
+    .option('--html <file>', 'also write a self-contained HTML report')
     .option('--verbose', 'list every probe')
     .option('--no-color', 'disable color')
     .option('--read-only', 'skip all write probes')
     .option('-y, --i-know-what-im-doing', "scan a remote database whose name doesn't contain test, demo or staging")
     .action(async (flags: ScanFlags) => {
       setExitCode(await runScan(flags, io, deps))
+    })
+
+  program
+    .command('fix')
+    .description('Write a migration that fixes a report\'s findings, using Claude if ANTHROPIC_API_KEY is set')
+    .requiredOption('--from <file>', 'the report, from redrow scan --json')
+    .option('--db <url>', 'connection string (falls back to REDROW_DB_URL)')
+    .option('--config <path>', 'config file (default: redrow.config.json, if present)')
+    .option('--apply', 'apply the migration and rescan')
+    .option('--out <file>', 'where to write it (default: redrow-fix-<timestamp>.sql)')
+    .option('-y, --i-know-what-im-doing', "use a remote database whose name doesn't contain test, demo or staging")
+    .action(async (flags: FixFlags) => {
+      setExitCode(await runFix(flags, io, deps))
     })
 
   return program

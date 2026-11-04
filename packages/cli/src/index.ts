@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-import { scan } from '@redrow/engine'
+import { introspect, scan } from '@redrow/engine'
 import { run } from './cli'
 import { openConnection } from './connection'
+import { generateWithClaude } from './fix/ai'
+import { applyStatements, validateStatements } from './fix/run'
 import { isColorSupported } from './render'
 
 /** Secrets come from the environment or `.env`. Values already set win over the file. */
@@ -26,5 +28,9 @@ process.exitCode = await run(
     colorSupported: isColorSupported,
     spinner: process.stderr.isTTY === true,
   },
-  { connect: openConnection, scan },
+  {
+    connect: openConnection,
+    scan,
+    fix: { introspect, validate: validateStatements, apply: applyStatements, generate: generateWithClaude },
+  },
 )

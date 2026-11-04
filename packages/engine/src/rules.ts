@@ -21,7 +21,7 @@ export interface RuleDefinition {
 
 // Hints are meant to be pasted, so every identifier is quoted: that keeps them
 // valid for mixed-case and reserved names such as Prisma's "User" or "order".
-const quoteIdent = (name: string): string => `"${name.replace(/"/g, '""')}"`
+export const quoteIdent = (name: string): string => `"${name.replace(/"/g, '""')}"`
 
 const relation = (c: FixHintContext): string =>
   `${quoteIdent(c.schema)}.${c.table === undefined ? '<table>' : quoteIdent(c.table)}`

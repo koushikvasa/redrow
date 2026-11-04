@@ -1,4 +1,6 @@
-import { toReport, type ScanOptions, type ScanResult, type Severity } from '@redrow/engine'
+import { writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { toReport, type Report, type ScanOptions, type ScanResult, type Severity } from '@redrow/engine'
 import type { CliDeps, CliIO } from '../cli'
 import { DEFAULT_CONFIG_FILE, loadConfig, type RedrowConfig } from '../config'
 import {
@@ -14,6 +16,7 @@ import { CliError } from '../errors'
 import { EXIT_ERROR, EXIT_OK, exitCodeFor } from '../exit-codes'
 import { createProgress } from '../progress'
 import { renderReport } from '../render'
+import { renderHtmlReport } from '../report/html'
 import { sanitizeForTerminal, toTerminalSafeJson } from '../sanitize'
 
 export const SAFETY_BANNER = 'All write probes run inside transactions that are rolled back.'
@@ -26,6 +29,7 @@ export interface ScanFlags {
   readonly only?: string
   readonly severity: Exclude<Severity, 'info'>
   readonly json?: boolean
+  readonly html?: string
   readonly verbose?: boolean
   readonly color: boolean
   readonly readOnly?: boolean
@@ -38,7 +42,7 @@ const parseOnly = (only: string | undefined): readonly string[] | undefined =>
     .map((name) => name.trim())
     .filter((name) => name !== '')
 
-function toScanOptions(flags: ScanFlags, config: RedrowConfig): ScanOptions {
+export function toScanOptions(flags: ScanFlags, config: RedrowConfig): ScanOptions {
   const { userA, userB } = config.tenants
   return {
     schemas: config.schemas,
@@ -51,7 +55,7 @@ function toScanOptions(flags: ScanFlags, config: RedrowConfig): ScanOptions {
   }
 }
 
-function resolveTarget(flags: ScanFlags, io: CliIO): ConnectionTarget {
+export function resolveTarget(flags: { readonly db?: string }, io: CliIO): ConnectionTarget {
   const url = flags.db ?? io.env.REDROW_DB_URL
   if (url === undefined || url === '') {
     throw new CliError('No database to scan. Pass --db <url> or set REDROW_DB_URL.')
@@ -88,8 +92,18 @@ function announceTarget(target: ConnectionTarget, config: RedrowConfig, io: CliI
   )
 }
 
+function writeHtml(report: Report, path: string, io: CliIO): void {
+  try {
+    writeFileSync(resolve(io.cwd, path), renderHtmlReport(report))
+  } catch {
+    throw new CliError(`Could not write the HTML report to ${sanitizeForTerminal(path)}`)
+  }
+  io.stderr(`HTML report written to ${sanitizeForTerminal(path)}\n`)
+}
+
 function writeReport(result: ScanResult, flags: ScanFlags, io: CliIO): void {
   const report = toReport(result)
+  if (flags.html !== undefined) writeHtml(report, flags.html, io)
   if (flags.json === true) {
     io.stdout(`${toTerminalSafeJson(report)}\n`)
     return

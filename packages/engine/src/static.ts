@@ -132,6 +132,14 @@ export function usesBareAuthUid(expression: string): boolean {
   return /auth\.uid\(\)/i.test(expression.replace(WRAPPED_AUTH_UID, ''))
 }
 
+/** Rewrites each bare `auth.uid()` to the wrapped form, leaving ones already wrapped alone. */
+export function wrapBareAuthUid(expression: string): string {
+  const eitherForm = new RegExp(`${WRAPPED_AUTH_UID.source}|auth\\.uid\\(\\)`, 'gi')
+  return expression.replace(eitherForm, (match) =>
+    match.toLowerCase() === 'auth.uid()' ? '( SELECT auth.uid() AS uid)' : match,
+  )
+}
+
 const policyExpressions = (policy: PolicyInfo): string[] =>
   [policy.qual, policy.withCheck].filter((e): e is string => e !== null)
 
