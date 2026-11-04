@@ -2,7 +2,7 @@
 
 > **AI wrote your RLS. Red Row proves whether it leaks.**
 
-Red Row is an open-source CLI (clone the repo, then `npm run scan`) that **attacks a Supabase project's Row Level Security** with simulated users and reports, with real row counts, who can read or write what. Every attack runs inside a transaction that is always rolled back. Sequence values and outside effects from triggers are the documented exceptions, so point it at a staging project or a branch where you can.
+Red Row is an open-source CLI (`npx redrow scan`, or from a clone, `npm run scan`) that **attacks a Supabase project's Row Level Security** with simulated users and reports, with real row counts, who can read or write what. Every attack runs inside a transaction that is always rolled back. Sequence values and outside effects from triggers are the documented exceptions, so point it at a staging project or a branch where you can.
 
 Built for the **Supabase × Sodabase × BuilderBase NYC Hackathon (Wed Nov 4, 2026)**. Read `docs/` before building anything:
 
@@ -23,7 +23,7 @@ AI app builders generate Supabase schemas and RLS policies that compile, pass li
 1. **Data quality** — Sodabase scores our HQ tables (freshness + row count). HQ tables are insert-only with `created_at`, written continuously by a `pg_cron` sweep. Never update/delete rows in HQ.
 2. **Built to scale** — judges read our schema, indexes, RLS and edge functions. HQ must score **100 when Red Row scans itself.**
 3. **Execution** — the live demo works end to end: scan → leaks → fix → rescan = 100.
-4. **Craft** — polished, original, clear problem. Clone and run, beautiful report, great README.
+4. **Craft** — polished, original, clear problem. `npx redrow scan` with no install, beautiful report, great README.
 
 Event constraints: building 4:30–7:00 PM, **Sodabase must be connected by 5:30 PM**, submit public repo + live URL/video + Sodabase score by 7:00 PM.
 
@@ -92,4 +92,4 @@ Two separate Supabase cloud projects (free tier allows 2):
 - `npm run fix -- --from report.json` writes a migration; after applying it, rescan = 100 (or near).
 - HQ scanning itself = 100. pg_cron sweep writes a scan about every minute. Sodabase connected.
 - Dashboard live on Vercel: score dial, leak matrix, score-over-time, findings with copyable fix SQL.
-- README with screenshots, clone-and-run quickstart, safety explanation, MIT license. Repo public.
+- README with screenshots, `npx`-first quickstart, safety explanation, MIT license. Repo public.

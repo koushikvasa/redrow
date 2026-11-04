@@ -67,7 +67,7 @@ $env:DEMO_DB_URL = (Select-String -Path .env -Pattern '^DEMO_DB_URL=').Line.Spli
 4. **(1:35) Fix.** `npm run scan -- --db $DEMO_DB_URL --json > redrow-report.json`, then `npm run fix -- --db $DEMO_DB_URL --from redrow-report.json --apply -y`. Show the generated migration, every block labeled with the rule it fixes. Terminal rescan → 100/A straight away. The dashboard dial follows when the next sweep lands, up to about a minute later.
 5. **(2:10) Safety.** "Every attack runs inside a transaction that's rolled back. We read counts and owner ids, never row contents, and the attacks never commit."
 6. **(2:30) Scale + data quality.** "And our own backend? Red Row scans it about every minute: 100. And Sodabase watches our scan history." Show both.
-7. **(2:50) Close.** "We tested AI-written RLS 10 times. It held up, and we only know because we attacked it. Red Row doesn't assume your RLS is broken. It finds out. Clone it and `npm run scan`. Open source today."
+7. **(2:50) Close.** "We tested AI-written RLS 10 times. It held up, and we only know because we attacked it. Red Row doesn't assume your RLS is broken. It finds out. It's on npm tonight: `npx redrow scan`."
 
 ## Likely judge questions
 - **"Did AI write CareNote?"** No. We wrote it by hand to be leaky, with the kinds of mistakes in the incidents above. When we asked AI for real schemas, they held up.
