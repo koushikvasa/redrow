@@ -3,6 +3,21 @@
   "version": "0.1.0",
   "description": "AI wrote your RLS. Red Row proves whether it leaks.",
   "license": "MIT",
+  "keywords": [
+    "supabase",
+    "rls",
+    "postgres",
+    "security"
+  ],
+  "homepage": "https://redrow.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/koushikvasa/redrow.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/koushikvasa/redrow/issues"
+  },
   "type": "module",
   "bin": {
     "redrow": "./dist/index.js"

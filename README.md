@@ -87,17 +87,23 @@ Advisor run on Nov 4, 2026. Red Row doesn't check `search_path` or auth settings
 
 ## Quickstart
 
-Needs Node 20+. Use the **Session pooler** connection string from Supabase → Connect (port 5432).
+Needs Node 20.12+. Use the **Session pooler** connection string from Supabase → Connect (port 5432).
+
+```bash
+npx redrow scan --db "<session pooler url>" --read-only -y
+```
+
+`--read-only` skips every write attempt. Drop it to run the write attacks too, each in a transaction that's rolled back.
+
+`-y` confirms you mean this database. Red Row refuses a remote database otherwise, unless it's listed in `allowHosts` in `redrow.config.json` or its name contains test, demo or staging. No API key needed.
+
+Or run it from a clone, which is what the commands below use. With `npx`, write `npx redrow scan` instead of `npm run scan --`, and `npx redrow fix` instead of `npm run fix --`.
 
 ```bash
 git clone https://github.com/koushikvasa/redrow && cd redrow
 npm install
 npm run scan -- --db "<session pooler url>" -y
 ```
-
-`-y` confirms you mean this database. Red Row refuses a remote database otherwise, unless it's listed in `allowHosts` in `redrow.config.json` or its name contains test, demo or staging. No API key needed.
-
-Red Row isn't on npm, so run it from a clone.
 
 ## How it works
 

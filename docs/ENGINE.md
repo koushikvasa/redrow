@@ -1,6 +1,6 @@
 # Engine spec — introspection, rules, probes, scoring
 
-Red Row isn't on npm. In these docs, `redrow scan` and `redrow fix` mean `npm run scan --` and `npm run fix --` from a clone.
+Red Row is on npm. In these docs, `redrow scan` and `redrow fix` mean `npx redrow scan` and `npx redrow fix`, or `npm run scan --` and `npm run fix --` from a clone.
 
 The engine is `packages/engine`. Public API:
 
