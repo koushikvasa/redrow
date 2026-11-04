@@ -176,6 +176,7 @@ select ${owner}::text as owner, count(*)::int as n from ${table} where ${owner} 
 group by 1 order by 2 desc limit 2;
 ```
 - `userA` = the owner found in the most tables, then with the most rows. Non-uuid values are ignored, because `auth.uid()` would fail on them.
+- `userA` can be pinned with `ScanOptions.userAEmail`, from `actors` in the config, by project (the CLI applies it with `--project`). It's resolved at scan time with `select id from auth.users where lower(email) = lower($1)`, id only. If it isn't found, the pick above applies and a warning says so, without the email, because reports get shared. Explicit `tenants` win over it.
 - `userB` = the next owner if one exists, else `gen_random_uuid()`.
 - `anon` = no sub.
 - A count that hits the statement timeout leaves the total null rather than failing the scan.
