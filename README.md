@@ -26,10 +26,12 @@ Red Row isn't published to npm, so run it from a clone.
 
 ```bash
 npm run scan -- --db "<url>" -y --html report.html        # a self-contained page to share
-npm run -s scan -- --db "<url>" -y --json > report.json   # the input for fix (-s keeps npm's banner out of the file)
+npm run scan -- --db "<url>" -y --json > report.json      # the input for fix
 npm run fix -- --db "<url>" -y --from report.json         # writes redrow-fix-<timestamp>.sql
 npm run fix -- --db "<url>" --from report.json --apply    # asks y/N, applies, rescans (-y skips the question)
 ```
+
+`npm install` prints nothing while it works: the repo's `.npmrc` silences npm, because otherwise npm echoes `--db` and its password on every run. You can also put the URL in `.env` as `REDROW_DB_URL` and leave `--db` off.
 
 With `ANTHROPIC_API_KEY` set, Claude writes the migration, and its first line names the model that answered. Without a key, rule-based templates do it. Claude only sees finding metadata and catalog text, never your rows. Either way the SQL is parsed against an allowlist and tried in a rolled-back transaction before it's written. Read a model's migration before you apply it. `docs/ENGINE.md` section 6 says what those checks do and don't catch.
 
