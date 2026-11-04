@@ -29,6 +29,11 @@ describe('parseConfig', () => {
     expect(parsed.publicTables).toEqual(['projects', 'public.plans'])
   })
 
+  it('accepts a host/login entry, as a Supabase pooler needs', () => {
+    const entry = 'aws-0-us-east-1.pooler.supabase.com/postgres.abcdefgh'
+    expect(parseConfig({ allowHosts: [entry] }, 'c.json').allowHosts).toEqual([entry])
+  })
+
   it('offers allowHosts and publicTables in the starter config, empty', () => {
     const starter = JSON.parse(STARTER_CONFIG) as Record<string, unknown>
     expect(starter.allowHosts).toEqual([])
@@ -41,7 +46,10 @@ describe('parseConfig', () => {
     ['aws-0-*.pooler.supabase.com'],
     ['db.example.com:5432'],
     ['postgres://db.example.com'],
-    ['db.example.com/postgres'],
+    ['*.example.com/postgres.ref'],
+    ['db.example.com/'],
+    ['db.example.com/a/b'],
+    ['db.example.com/*'],
     [' db.example.com'],
     [''],
   ])('rejects %j in allowHosts: only one exact host name is allowed', (entry) => {

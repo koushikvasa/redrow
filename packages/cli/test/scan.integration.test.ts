@@ -8,7 +8,7 @@ import { run } from '../src/cli'
 import { openConnection, parseConnection } from '../src/connection'
 import { captureIO } from './helpers'
 
-const URL_FROM_ENV = process.env.REDROW_TEST_DB_URL
+const URL_FROM_ENV = process.env.REDROW_TEST_DB_URL || undefined
 const SCHEMA = 'redrow_cli_it'
 
 describe.skipIf(URL_FROM_ENV === undefined)('redrow scan, against a real database', () => {

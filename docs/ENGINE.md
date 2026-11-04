@@ -229,7 +229,9 @@ As **userA**, on un-owned tables: `select_all`, `select count(*) from T`. If it 
 | No column can be assigned (`update_any`) | `not_applicable` | null |
 | `55P03`, `40P01`, `40001` | retried once, then `inconclusive` | null |
 | Any other SQLSTATE, such as `57014` (timeout) or a trigger raising | `inconclusive` | null |
-| Error with no SQLSTATE (lost connection) | the scan fails | |
+| Connection, login, resource or shutdown error (SQLSTATE class `08`, `28`, `53`, `57P`), any error before the transaction is set up, or no SQLSTATE at all | the scan fails | |
+
+**Only an error raised after the transaction is set up counts as a probe's answer.** Supabase's pooler can refuse a login with `28P01` or `42704`, and a code alone can't tell that from a policy's answer: read as a result, it would make a table look safe.
 
 **Constraint errors on insert count as allowed because Postgres checks RLS WITH CHECK first.** A denied row gets `42501`, so `23502` means RLS let it through and only an incomplete test row was rejected. A complete row would succeed.
 
@@ -329,7 +331,7 @@ interface ScanResult {
 ### CLI behaviour
 - Exit codes: `0` no findings at or above `--severity` (default `low`), `1` findings, `2` could not run, or every probe was inconclusive. `info` never fails a scan and isn't a `--severity` level.
 - `--json` writes only JSON to stdout. The banner and warnings go to stderr.
-- Production guard: refuses a host that isn't local when the database name doesn't contain `test`, `demo` or `staging`, unless `-y` (`--i-know-what-im-doing`) is passed or the host **exactly** matches an entry in `allowHosts` in `redrow.config.json`. Wildcards are rejected. Supabase databases are always named `postgres`, so a Supabase scan needs one of the two. An entry matches the host alone, not the database or login. **Every project in a region shares its pooler host**, so listing a pooler host waives the guard for all of them.
+- Production guard: refuses a host that isn't local when the database name doesn't contain `test`, `demo` or `staging`, unless `-y` (`--i-know-what-im-doing`) is passed or the target **exactly** matches an entry in `allowHosts` in `redrow.config.json`. An entry is a host, or `host/login`. Wildcards are rejected. Supabase databases are always named `postgres`, so a Supabase scan needs one of the two. **Every project in a region shares its pooler host and differs only by login**, so use `host/login` there: a bare pooler host waives the guard for all of them.
 - The driver gets explicit connection fields, never the url, so the guard judges what actually gets connected to. Query parameters other than `sslmode` and `pgbouncer` are refused, because the driver lets them override the host and database. Remote connections use TLS: `sslmode=disable` is refused, and `prefer` and `allow` become `require`.
 
 ## 6. Fix generation (`redrow fix`)

@@ -16,7 +16,10 @@ const userId = z.string().regex(UUID, 'must be a uuid').nullable().default(null)
 // work fails loudly. Matching is exact, so `*.supabase.com` could only ever match nothing.
 const exactHostName = z
   .string()
-  .regex(/^[A-Za-z0-9.-]+$/, 'must be one exact host name, with no wildcard, port or scheme')
+  .regex(
+    /^[A-Za-z0-9.-]+(\/[A-Za-z0-9._-]+)?$/,
+    'must be one exact host, or host/login, with no wildcard, port or scheme',
+  )
 
 const configSchema = z.strictObject({
   $comment: comment,
@@ -60,7 +63,7 @@ export const STARTER_CONFIG = `${JSON.stringify(
   {
     $comment:
       'Red Row config. Keys named $comment are ignored, because JSON has no comments. ' +
-      'allowHosts: exact host names to scan without -y; no wildcards. ' +
+      'allowHosts: what to scan without -y, as an exact host, or host/login; no wildcards. Supabase projects share a pooler host, so use host/login there. ' +
       'publicTables: tables anon is meant to read; a bare name means the public schema, or use schema.table. Their anon reads are reported as declared exposure and score nothing, and writes still count.',
     schemas: ['public'],
     tables: [],

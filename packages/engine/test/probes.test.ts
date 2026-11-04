@@ -177,6 +177,39 @@ describe('runTableProbes', () => {
     await expect(run(fakeSql({ failWith: lost }))).rejects.toBe(lost)
   })
 
+  describe('errors that say nothing about the policy must fail the scan, not look like an answer', () => {
+    const failingAtSetup = (code: string): FakeSql =>
+      fakeSql({
+        respond: (text) => (text.startsWith('set local statement_timeout') ? serverError(code, 'login trouble') : undefined),
+      })
+
+    it.each(['28P01', '42704', '42501', 'XX000', '53300'])(
+      'fails on %s before the probe could start, however much it looks like a denial',
+      async (code) => {
+        await expect(run(failingAtSetup(code), owned, true)).rejects.toThrow('login trouble')
+      },
+    )
+
+    it('keeps the code on that failure, so the CLI can still give its friendly message', async () => {
+      await expect(run(failingAtSetup('28P01'), owned, true)).rejects.toMatchObject({ code: '28P01' })
+    })
+
+    it.each(['08006', '28000', '53300', '57P01', '57P03'])(
+      'fails on %s mid-probe: the connection or server went away',
+      async (code) => {
+        const sql = fakeSql({
+          respond: (text) => (text.includes('count(*)') ? serverError(code, 'server trouble') : undefined),
+        })
+        await expect(run(sql, owned, true)).rejects.toThrow('server trouble')
+      },
+    )
+
+    it('still reads a statement timeout as inconclusive, because that is about the probe', async () => {
+      const sql = fakeSql({ respond: (text) => (text.includes('count(*)') ? serverError('57014') : undefined) })
+      expect(find(await run(sql, owned, true), 'anon', 'select_all').outcome).toBe('inconclusive')
+    })
+  })
+
   it('fails the scan when a role cannot be assumed, because all-denied would look safe', async () => {
     const sql = fakeSql({
       respond: (text) => (text.startsWith('set local role') ? serverError('42501') : undefined),
@@ -477,6 +510,13 @@ describe('gatherTableStats', () => {
     const sql = fakeSql({ rowsByQuery: { 'count(*)::int as n': [{ n: 9 }] } })
     expect(await gatherTableStats(sql.client, unowned)).toEqual({ total: 9, owners: [] })
     expect(sql.queries.some((q) => q.text.includes('group by'))).toBe(false)
+  })
+
+  it('does not swallow a login failure as an unknown total', async () => {
+    const sql = fakeSql({
+      respond: (text) => (text.startsWith('set local statement_timeout') ? serverError('28P01', 'login trouble') : undefined),
+    })
+    await expect(gatherTableStats(sql.client, owned)).rejects.toThrow('login trouble')
   })
 
   it('reads nothing from a table whose name it cannot safely address', async () => {

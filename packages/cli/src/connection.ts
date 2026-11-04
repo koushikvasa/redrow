@@ -117,9 +117,13 @@ export function parseConnection(url: string): ConnectionTarget {
 export const needsProductionOverride = (target: ConnectionTarget): boolean =>
   !target.isLocal && !SAFE_DATABASE_NAME.test(target.database)
 
-/** Exact comparison only: no suffixes, patterns or parent domains. */
+/**
+ * Exact comparison only: no suffixes, patterns or parent domains. An entry is a host, or
+ * host/login. Every Supabase project in a region shares a pooler host and differs only
+ * by login, so there the login is what actually names the project.
+ */
 export const isAllowedHost = (target: ConnectionTarget, allowHosts: readonly string[]): boolean =>
-  allowHosts.includes(target.host)
+  allowHosts.includes(target.host) || allowHosts.includes(`${target.host}/${target.username}`)
 
 export function assertAllowedTarget(
   target: ConnectionTarget,
@@ -134,7 +138,7 @@ export function assertAllowedTarget(
       `advance, and extensions such as dblink or http can have outside effects. Unfiltered updates and\n` +
       `deletes also add load, for up to 5 seconds per statement.\n` +
       `Supabase databases are always named "postgres". To scan this one on purpose, add -y (${PRODUCTION_OVERRIDE_FLAG}),\n` +
-      `or list this exact host in allowHosts in redrow.config.json.`,
+      `or list this exact host, or host/login for a shared pooler, in allowHosts in redrow.config.json.`,
   )
 }
 

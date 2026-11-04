@@ -5,3 +5,6 @@ coverage
 *.local
 redrow-report*.json
 redrow-fix-*.sql
+/supabase/
+**/supabase/.temp/
+**/supabase/.branches/

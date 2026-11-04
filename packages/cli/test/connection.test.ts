@@ -139,7 +139,35 @@ describe('production guard', () => {
     expect(() => assertAllowedTarget(parseConnection(url), false, ['db.example.com'])).toThrow(/Refusing/)
   })
 
-  it('matches on the host alone, so an entry covers every database and login on that host', () => {
+  describe('a host/login entry, for a pooler that many projects share', () => {
+    const allowHosts = ['pooler.example.com/postgres.project_a']
+    const urlFor = (login: string): string => `postgres://${login}:p@pooler.example.com:5432/postgres`
+
+    it('allows that login', () => {
+      expect(() => assertAllowedTarget(parseConnection(urlFor('postgres.project_a')), false, allowHosts)).not.toThrow()
+    })
+
+    it.each([
+      ['another project on the same pooler', 'postgres.project_b'],
+      ['a login that only starts the same', 'postgres.project_a2'],
+      ['a login with different case', 'postgres.PROJECT_A'],
+      ['no project at all', 'postgres'],
+    ])('refuses %s', (_label, login) => {
+      expect(() => assertAllowedTarget(parseConnection(urlFor(login)), false, allowHosts)).toThrow(/Refusing/)
+    })
+
+    it('refuses the same login on another host', () => {
+      const target = parseConnection('postgres://postgres.project_a:p@other.example.com/postgres')
+      expect(() => assertAllowedTarget(target, false, allowHosts)).toThrow(/Refusing/)
+    })
+
+    it('compares the decoded login, which is what the driver sends', () => {
+      const encoded = parseConnection('postgres://postgres%2Eproject_a:p@pooler.example.com/postgres')
+      expect(() => assertAllowedTarget(encoded, false, allowHosts)).not.toThrow()
+    })
+  })
+
+  it('matches on the host alone for a bare entry, covering every database and login on that host', () => {
     const allowHosts = ['pooler.example.com']
     const projects = [
       'postgres://postgres.project_a:p@pooler.example.com:5432/postgres',

@@ -14,7 +14,8 @@ function loadRootEnvFile(): void {
 
 export default function setup(): void {
   loadRootEnvFile()
-  if (process.env.REDROW_TEST_DB_URL === undefined) {
+  // Empty counts as unset, because that's what a copy of .env.example has.
+  if (!process.env.REDROW_TEST_DB_URL) {
     process.stderr.write(
       '\nREDROW_TEST_DB_URL is not set: the rollback safety and integration tests are SKIPPED.\n' +
         'Point it at a disposable Supabase database to run them.\n\n',

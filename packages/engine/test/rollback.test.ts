@@ -1,7 +1,9 @@
 import type { Sql } from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { scan, toReport } from '../src/index'
+import { runTableProbes } from '../src/probes'
 import { impersonate, inRolledBackTx } from '../src/tx'
+import { table } from './fixtures'
 import {
   TEST_DB_URL,
   connectToTestDb,
@@ -214,24 +216,27 @@ describe.skipIf(TEST_DB_URL === undefined)('rollback safety, against a real data
     })
 
     it('fails, rather than reporting clean, when the connecting role cannot become anon', async () => {
-      const name = 'redrow_it_no_membership'
+      // Unique per run: Supabase's pooler caches logins by name, so reusing one fails at login.
       const password = crypto.randomUUID()
-      await admin.unsafe(`drop role if exists ${name}`)
+      const name = `redrow_it_${password.replaceAll('-', '').slice(0, 12)}`
       await admin.unsafe(`create role ${name} login password '${password}' noinherit`)
       await admin.unsafe(`grant usage on schema ${SCHEMA} to ${name}`)
       await admin.unsafe(`grant select on all tables in schema ${SCHEMA} to ${name}`)
-      // Enough to read the catalogs, so that this gets as far as the role switch.
-      await admin.unsafe(`grant usage on schema auth to ${name}`)
       const limited = connectToTestDbAs(name, password)
       try {
+        // Probes directly, not scan(): Supabase's postgres role can't grant the `auth` schema
+        // access that introspection needs, and the role switch is what's being proved here.
         await expect(
-          scan(limited, { schemas: [SCHEMA], readOnly: true, actors: { userA: A, userB: B } }),
+          runTableProbes(limited, table('sentinel', { schema: SCHEMA }), { userA: A, userB: B }, {
+            readOnly: true,
+            anon: true,
+            authenticated: false,
+          }),
         ).rejects.toThrow(/can't act as anon/)
       } finally {
         await limited.end()
         await admin.unsafe(`revoke all on all tables in schema ${SCHEMA} from ${name}`)
         await admin.unsafe(`revoke all on schema ${SCHEMA} from ${name}`)
-        await admin.unsafe(`revoke usage on schema auth from ${name}`)
         await admin.unsafe(`drop role ${name}`)
       }
     }, 30000)

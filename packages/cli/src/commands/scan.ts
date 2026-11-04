@@ -73,7 +73,7 @@ function announceTarget(target: ConnectionTarget, config: RedrowConfig, io: CliI
   const name = sanitizeForTerminal(target.label)
   io.stderr(
     isAllowedHost(target, config.allowHosts)
-      ? `Scanning ${name}: its host is listed in allowHosts in your config.\n`
+      ? `Scanning ${name}: it is listed in allowHosts in your config.\n`
       : `Warning: scanning ${name} because you passed ${PRODUCTION_OVERRIDE_FLAG}.\n`,
   )
 }

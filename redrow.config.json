@@ -1,0 +1,4 @@
+{
+  "$comment": "CareNote is the deliberately leaky demo, so it can be scanned without -y. The login names the project on the shared pooler, and isn't a secret: it's the project ref that appears in every Supabase client URL.",
+  "allowHosts": ["aws-0-us-east-1.pooler.supabase.com/postgres.rhzifgxalchaoeolrazv"]
+}

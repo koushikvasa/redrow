@@ -1,6 +1,6 @@
 import postgres, { type Sql } from 'postgres'
 
-export const TEST_DB_URL = process.env.REDROW_TEST_DB_URL
+export const TEST_DB_URL = process.env.REDROW_TEST_DB_URL || undefined
 
 const NOT_SET = 'REDROW_TEST_DB_URL is not set.'
 
@@ -21,7 +21,9 @@ export function connectToTestDb(max = 1): Sql {
 export function connectToTestDbAs(username: string, password: string): Sql {
   if (TEST_DB_URL === undefined) throw new Error(NOT_SET)
   const url = new URL(TEST_DB_URL)
-  url.username = username
+  // Supabase's pooler picks the project from the login's suffix: `postgres.<ref>`.
+  const dot = url.username.indexOf('.')
+  url.username = dot === -1 ? username : `${username}${url.username.slice(dot)}`
   url.password = password
   return postgres(url.toString(), {
     max: 2,
