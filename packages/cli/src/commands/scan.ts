@@ -18,6 +18,7 @@ import { createProgress } from '../progress'
 import { renderReport } from '../render'
 import { renderHtmlReport } from '../report/html'
 import { sanitizeForTerminal, toTerminalSafeJson } from '../sanitize'
+import { resolveUpload, uploadReport } from '../upload'
 
 export const SAFETY_BANNER = 'All write probes run inside transactions that are rolled back.'
 const SIDE_EFFECTS_NOTE =
@@ -34,6 +35,8 @@ export interface ScanFlags {
   readonly color: boolean
   readonly readOnly?: boolean
   readonly iKnowWhatImDoing?: boolean
+  readonly upload?: boolean
+  readonly project?: string
 }
 
 const parseOnly = (only: string | undefined): readonly string[] | undefined =>
@@ -138,6 +141,7 @@ export async function runScan(flags: ScanFlags, io: CliIO, deps: CliDeps): Promi
   const target = resolveTarget(flags, io)
   const config = loadConfig(flags.config, io.cwd)
   assertAllowedTarget(target, flags.iKnowWhatImDoing ?? false, config.allowHosts)
+  const upload = flags.upload === true ? resolveUpload(flags.project, io) : undefined
   // Status goes to stderr, so stdout stays valid JSON under --json.
   io.stderr(`${SAFETY_BANNER}\n${SIDE_EFFECTS_NOTE}\n`)
   warnAboutBareHosts(config, io)
@@ -145,6 +149,7 @@ export async function runScan(flags: ScanFlags, io: CliIO, deps: CliDeps): Promi
   announceDeclaredTables(flags, config, io)
   const result = await runProbes(flags, config, target, io, deps)
   writeReport(result, flags, io)
+  if (upload !== undefined) await uploadReport(toReport(result), upload, io)
   const code = exitCodeFor(result.findings, flags.severity)
   if (code === EXIT_OK && provedNothing(result)) {
     io.stderr('redrow: every probe was inconclusive, so this scan proves nothing.\n')

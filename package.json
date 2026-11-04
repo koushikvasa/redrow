@@ -9,7 +9,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "hq"
   ],
   "scripts": {
     "prepare": "npm run build",
@@ -20,7 +21,8 @@
     "scan": "node packages/cli/dist/index.js scan",
     "fix": "node packages/cli/dist/index.js fix",
     "demo:reset": "node demo-target/scripts/apply.mjs demo-target/supabase/reset.sql demo-target/supabase/leaky.sql && node demo-target/scripts/seed.mjs",
-    "demo:fix-reference": "node demo-target/scripts/apply.mjs demo-target/supabase/fixed.sql"
+    "demo:fix-reference": "node demo-target/scripts/apply.mjs demo-target/supabase/fixed.sql",
+    "sync:engine": "npm run build -w @redrow/engine && node scripts/sync-engine.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

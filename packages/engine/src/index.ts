@@ -15,8 +15,9 @@ import type {
   TableInfo,
   TableSummary,
 } from './types'
+import { ENGINE_VERSION } from './version'
 
-export const ENGINE_VERSION = '0.1.0'
+export { ENGINE_VERSION } from './version'
 
 const DEFAULT_SCHEMAS: readonly string[] = ['public']
 
@@ -140,6 +141,8 @@ export { findingsFromProbes, mergeFindings } from './dynamic'
 export { gatherTableStats, runTableProbes } from './probes'
 export { REPORT_VERSION, toReport } from './report'
 export type { Report, ReportEvidence, ReportFinding, ReportSummary } from './report'
+export { toScanRows } from './rows'
+export type { FindingRow, ProbeRow, ScanRows, ScanRunRow, ScanSource } from './rows'
 export { RULES, makeFinding, quoteIdent } from './rules'
 export type { FixHintContext, RuleDefinition, RuleId } from './rules'
 export { SEVERITIES, meetsSeverity, scoreFindings } from './score'

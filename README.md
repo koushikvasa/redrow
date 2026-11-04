@@ -56,6 +56,28 @@ demo-target/      CareNote, a deliberately leaky app to attack
 
 `docs/ENGINE.md` has the rules and scoring, and `docs/SCHEMAS.md` has the schemas.
 
+## Deploying HQ
+
+HQ is a Supabase project. With its values in `.env` (see `.env.example`), and `<ref>` as its project ref:
+
+```bash
+npx supabase --workdir hq db push --db-url "$HQ_DB_URL"
+npm run sync:engine
+npx supabase --workdir hq secrets set --project-ref <ref> DEMO_DB_URL=... HQ_POOLER_DB_URL=... SWEEP_TOKEN=... REDROW_INGEST_KEY=...
+npx supabase --workdir hq functions deploy ingest sweep --project-ref <ref> --use-api
+node hq/scripts/seed-history.mjs
+```
+
+Also store the sweep token in Vault, with `select vault.create_secret('<token>', 'sweep_token')`, and turn off email signups, or anyone could add projects to the public board. `pg_cron` then calls the sweep every minute, and each sweep writes about 100 rows, so turn it off when you no longer need it: `select cron.unschedule('redrow-sweep-carenote'); select cron.unschedule('redrow-sweep-hq');`.
+
+To scan HQ itself, which declares its public board in its own config:
+
+```bash
+npm run scan -- --config hq/redrow.config.json --db "$HQ_DB_URL"
+```
+
+To send any scan to HQ, set `REDROW_INGEST_URL` and `REDROW_INGEST_KEY` and add `--upload --project "<name>"`.
+
 ## License
 
 MIT

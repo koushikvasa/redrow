@@ -36,7 +36,7 @@ create index projects_public_idx   on public.projects (is_public) where is_publi
 create table public.scan_runs (
   id             uuid primary key default gen_random_uuid(),
   project_id     uuid not null references public.projects(id) on delete cascade,
-  source         text not null check (source in ('cli','sweep','ci','dashboard')),
+  source         text not null check (source in ('cli','sweep','ci','dashboard','seed')),  -- seed = backfilled history, not a real scan
   engine_version text not null,
   score          smallint not null check (score between 0 and 100),
   grade          char(1) not null check (grade in ('A','B','C','D','F')),
@@ -113,7 +113,7 @@ create policy probe_results_read on public.probe_results for select to anon, aut
 -- No insert/update/delete policies on scan tables: only the service role (edge functions) writes.
 
 -- Least privilege grants
-revoke all on public.scan_runs, public.findings, public.probe_results from anon, authenticated;
+revoke all on public.projects, public.scan_runs, public.findings, public.probe_results from anon, authenticated;
 grant select on public.projects, public.scan_runs, public.findings, public.probe_results to anon, authenticated;
 grant insert on public.projects to authenticated;
 
@@ -123,10 +123,10 @@ alter publication supabase_realtime add table public.scan_runs, public.findings;
 
 ### Edge functions (`hq/supabase/functions/`)
 - **`ingest`** — POST a `Report` (the `redrow scan --json` shape, ENGINE.md §5) with header `x-redrow-key` (per-project ingest key stored as a Supabase secret for the hackathon). Validates shape, inserts `scan_runs` + `findings` + `probe_results` in one transaction. Used by `redrow scan --upload`.
-- **`sweep`** — called by `pg_cron` every minute. Connects to the CareNote demo DB (`DEMO_DB_URL` secret) and to HQ itself (`SUPABASE_DB_URL`), runs the engine (`_shared/engine`), inserts results. This is both a real feature ("continuous red-team") and what keeps HQ tables fresh for Sodabase. When scanning HQ, it passes `publicTables: ['projects']`, because the judges' board is meant to be readable by anon.
+- **`sweep`** — called by `pg_cron` every minute, once per database (`?target=carenote`, `?target=hq`), because scanning both in one call runs past an edge function's compute limit. Connects to the CareNote demo DB (`DEMO_DB_URL` secret) and to HQ through its session pooler (`HQ_POOLER_DB_URL`, because a scan over `SUPABASE_DB_URL` never finishes on the edge), runs the engine (`_shared/engine`), inserts results. This is both a real feature ("continuous red-team") and what keeps HQ tables fresh for Sodabase. When scanning HQ, it passes `publicTables: ['projects']`, because the judges' board is meant to be readable by anon.
 
 ### Reaching 100 on the self-scan
-`projects_read` lets anon read `is_public` rows on purpose, so without a declaration RR101 fires and HQ scores 75. With `projects` in `publicTables`, that read is reported as declared exposure (`info`) and scores nothing. A signed-in user seeing a public project owned by someone else adds nothing beyond that, so RR102 is ignored as long as, for every owner, they see no more of that owner's rows than anon does. If they see more, it still counts.
+`projects_read` lets anon read `is_public` rows on purpose, so without a declaration RR101 fires and HQ scores 75. The CLI gets this from `hq/redrow.config.json`, kept apart from the root config, where it would hide anon reads on anyone's own `projects` table. With `projects` in `publicTables`, that read is reported as declared exposure (`info`) and scores nothing. A signed-in user seeing a public project owned by someone else adds nothing beyond that, so RR102 is ignored as long as, for every owner, they see no more of that owner's rows than anon does. If they see more, it still counts.
 
 ### Cron (`0002_cron.sql`)
 ```sql
@@ -137,12 +137,13 @@ select cron.schedule('redrow-sweep', '* * * * *', $$
     url     := 'https://<HQ_REF>.supabase.co/functions/v1/sweep',
     headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'sweep_token'),
                                   'Content-Type', 'application/json'),
-    body    := '{}'::jsonb);
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 55000);  -- a sweep takes several seconds, well past the 5s default
 $$);
 ```
 
 ### Seed (`hq/scripts/seed-history.mjs`)
-Creates the public demo projects ("CareNote demo", "Red Row HQ (self-scan)") and backfills **one scan every 15 minutes for 14 days** with realistic score drift (CareNote hovering 0–10, HQ 100). Uses explicit `created_at` values in the past. Inserts only.
+Creates the public demo projects ("CareNote demo", "Red Row HQ (self-scan)") and backfills **one scan every 15 minutes for 14 days** with realistic score drift (CareNote hovering 0–10, HQ 100). Uses explicit `created_at` values in the past, and `source = 'seed'` so backfilled rows can never be mistaken for real scans; the dashboard labels them. Inserts only.
 
 ---
 

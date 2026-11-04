@@ -1,0 +1,8 @@
+project_id = "redrow-hq"
+
+# Both functions check their own secret, and neither is called with a Supabase JWT.
+[functions.ingest]
+verify_jwt = false
+
+[functions.sweep]
+verify_jwt = false
