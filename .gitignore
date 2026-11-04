@@ -9,3 +9,8 @@ redrow-fix-*.sql
 /supabase/
 **/supabase/.temp/
 **/supabase/.branches/
+.next
+.vercel
+next-env.d.ts
+*.tsbuildinfo
+.playwright-mcp

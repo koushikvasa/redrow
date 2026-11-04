@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: #e8e6df;
+  --color-dim: #8b8d91;
+  --color-faint: #4a4d54;
+  --color-line: #24272d;
+  --color-panel: #111317;
+  --color-bg: #0a0b0d;
+  --color-leak: #ff3b30;
+  --color-high: #ff7a59;
+  --color-ok: #4ade80;
+  --color-amber: #f5b53d;
+  --color-info: #5ac8e8;
+  --font-mono: var(--font-jetbrains), 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+}
+
+html {
+  background: var(--color-bg);
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 100% 40px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 40px 100%,
+    var(--color-bg);
+}
+
+.band-good { --band: var(--color-ok); }
+.band-mid { --band: var(--color-amber); }
+.band-bad { --band: var(--color-leak); }
+
+/* Score dial: lit ticks switch on in sequence, on load and when a live score changes. */
+.tick {
+  stroke: var(--color-faint);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.5;
+  transition: stroke 0.3s, opacity 0.3s;
+  transition-delay: calc(var(--i) * 9ms);
+}
+.tick-lit {
+  stroke: var(--band);
+  opacity: 1;
+  filter: drop-shadow(0 0 3px var(--band));
+  animation: tick-on 0.35s both;
+  animation-delay: calc(var(--i) * 9ms);
+}
+@keyframes tick-on {
+  from { stroke: var(--color-faint); opacity: 0.5; filter: none; }
+}
+
+/* Leak matrix. Red only ever means a leak, scaled by how many rows it exposed. */
+.cell {
+  height: 3.1rem;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.4s, color 0.4s;
+}
+.cell-leak {
+  color: #fff;
+  background: rgba(255, 59, 48, calc(0.32 + 0.68 * var(--heat)));
+  box-shadow: inset 0 0 0 1px rgba(255, 59, 48, 0.8);
+}
+.cell-denied { color: rgba(74, 222, 128, 0.7); background: rgba(74, 222, 128, 0.09); font-weight: 400; }
+.cell-own { color: var(--color-ok); background: rgba(74, 222, 128, 0.16); }
+.cell-declared { color: #06222b; background: var(--color-info); }
+.cell-na { color: var(--color-faint); background: #15171b; font-weight: 400; }
+
+.live-dot {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick, .tick-lit, .cell, .live-dot { animation: none; transition: none; }
+}

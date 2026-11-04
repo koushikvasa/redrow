@@ -68,7 +68,7 @@ npx supabase --workdir hq functions deploy ingest sweep --project-ref <ref> --us
 node hq/scripts/seed-history.mjs
 ```
 
-Also store the sweep token in Vault, with `select vault.create_secret('<token>', 'sweep_token')`, and turn off email signups, or anyone could add projects to the public board. `pg_cron` then calls the sweep every minute, and each sweep writes about 100 rows, so turn it off when you no longer need it: `select cron.unschedule('redrow-sweep-carenote'); select cron.unschedule('redrow-sweep-hq');`.
+Also store the sweep token in Vault, with `select vault.create_secret('<token>', 'sweep_token')`, and turn off email signups, or anyone could add projects to the public board. `pg_cron` then calls the sweep every minute, and each sweep writes about 100 rows, so turn it off when you no longer need it: `select cron.unschedule('redrow-sweep')`.
 
 To scan HQ itself, which declares its public board in its own config:
 
@@ -77,6 +77,15 @@ npm run scan -- --config hq/redrow.config.json --db "$HQ_DB_URL"
 ```
 
 To send any scan to HQ, set `REDROW_INGEST_URL` and `REDROW_INGEST_KEY` and add `--upload --project "<name>"`.
+
+## The dashboard
+
+Live at **https://redrow.vercel.app**. `apps/web` is a standalone Next.js app, kept out of the root workspace so that scanning from a clone doesn't download it. It reads HQ with the anon key only, so it shows what RLS shows anyone.
+
+```bash
+cd apps/web && npm install && npm run dev   # needs NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local
+npx vercel --prod                           # deploys from apps/web
+```
 
 ## License
 
