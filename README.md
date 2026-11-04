@@ -10,6 +10,23 @@ Supabase's Security Advisor checks whether Row Level Security is *on*. Red Row c
 |---|---|
 | ![CareNote leaking: any logged-in doctor can read 80 of other doctors' patients and delete 240 of their notes. Score 0/F.](docs/img/carenote-leaking.png) | ![The same attacks with the fix applied: every attack blocked. Score 100/A.](docs/img/carenote-fixed.png) |
 
+## Red Row vs Supabase's Advisor
+
+Supabase's Advisor reads policy text. Red Row logs in and tries.
+
+| Leak on the CareNote demo | Supabase Advisor | Red Row |
+|---|---|---|
+| Read other doctors' patients: `patients` SELECT `using (true)` | not flagged | 🔓 80 rows |
+| Delete other doctors' notes: `visit_notes` DELETE `using (auth.role() = 'authenticated')` | not flagged | 🔓 240 rows |
+| Weak rule on note updates: `visit_notes` UPDATE without `WITH CHECK` | not flagged | Warned, attack blocked |
+| Strangers read every profile: RLS disabled on `profiles` | flagged | 🔓 3 rows |
+| Add appointments as another doctor: `appointments` INSERT `WITH CHECK (true)` | flagged | 🔓 allowed |
+| View skips RLS: security definer view `patient_summary` | flagged | Found in schema |
+| Function runs as its owner: `search_patients` security definer + mutable `search_path` | flagged | Found in schema |
+| Leaked password protection off | flagged | Not checked |
+
+Advisor run on Nov 4, 2026. Red Row doesn't check `search_path` or auth settings, so use both tools.
+
 ## Quickstart
 
 Needs Node 20+. Use the **Session pooler** connection string from Supabase → Connect (port 5432).

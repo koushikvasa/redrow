@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { AdvisorPanel } from '@/components/advisor-panel'
 import { FindingsList } from '@/components/findings-list'
 import { FixedToggle } from '@/components/fixed-toggle'
 import { LeakMatrix } from '@/components/leak-matrix'
@@ -8,6 +9,7 @@ import { LiveRefresh, ScannedAgo } from '@/components/live'
 import { ProjectHero } from '@/components/project-hero'
 import { ScoreChart } from '@/components/score-chart'
 import { TrustRow } from '@/components/trust-row'
+import { advisorComparisonFor } from '@/lib/advisor'
 import { fixedReferenceFor, type FixedReference } from '@/lib/fixed-reference'
 import { personaFor, type Persona } from '@/lib/personas'
 import { loadBackendScore, loadProject, type BackendScore, type ProjectView } from '@/lib/queries'
@@ -55,6 +57,7 @@ type LiveProps = { readonly view: ProjectView; readonly run: ScanRun; readonly p
 
 function LiveStory({ view, run, persona, backend }: LiveProps) {
   const { project, findings, probes } = view
+  const comparison = advisorComparisonFor(project.name, run.score)
   return (
     <>
       <ProjectHero
@@ -69,6 +72,7 @@ function LiveStory({ view, run, persona, backend }: LiveProps) {
         blocked={blockedCount(probes)}
         replayKey={replaySignature(probes, run.score)}
         replayTitle="Attack replay, latest scan"
+        aside={comparison === null ? null : <AdvisorPanel comparison={comparison} />}
       />
       <TrustRow backend={backend} />
       <LeakMatrix probes={probes} findings={findings} persona={persona} />

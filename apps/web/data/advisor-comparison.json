@@ -1,0 +1,14 @@
+{
+  "project": "CareNote demo",
+  "advisorRunOn": "Nov 4, 2026",
+  "rows": [
+    { "id": "patients-select", "leak": "Read other doctors' patients", "policy": "patients SELECT using (true)", "advisor": "not_flagged", "redRow": "proven", "rows": 80 },
+    { "id": "notes-delete", "leak": "Delete other doctors' notes", "policy": "visit_notes DELETE using (auth.role() = 'authenticated')", "advisor": "not_flagged", "redRow": "proven", "rows": 240 },
+    { "id": "notes-update", "leak": "Weak rule on note updates", "policy": "visit_notes UPDATE without WITH CHECK", "advisor": "not_flagged", "redRow": "warned", "rows": null },
+    { "id": "profiles-rls", "leak": "Strangers read every profile", "policy": "RLS disabled on profiles", "advisor": "flagged", "redRow": "proven", "rows": 3 },
+    { "id": "appointments-insert", "leak": "Add appointments as another doctor", "policy": "appointments INSERT WITH CHECK (true)", "advisor": "flagged", "redRow": "proven", "rows": null },
+    { "id": "summary-view", "leak": "View skips RLS", "policy": "security definer view patient_summary", "advisor": "flagged", "redRow": "found", "rows": null },
+    { "id": "search-function", "leak": "Function runs as its owner", "policy": "search_patients security definer + mutable search_path", "advisor": "flagged", "redRow": "found", "rows": null },
+    { "id": "leaked-passwords", "leak": "Leaked password protection off", "policy": "Auth setting", "advisor": "flagged", "redRow": "not_checked", "rows": null }
+  ]
+}

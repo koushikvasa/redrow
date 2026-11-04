@@ -12,6 +12,21 @@
 ## Why existing tools don't catch it
 Supabase Security Advisor is a static linter: it tells you RLS is **on**. A policy like `using (true)` for `authenticated` is "on", passes the linter, and still lets every signed-in user read every patient. Only an actual attack proves it. **Advisor checks configuration. Red Row checks behavior.**
 
+Supabase's Advisor reads policy text. Red Row logs in and tries.
+
+| Leak on the CareNote demo | Supabase Advisor | Red Row |
+|---|---|---|
+| Read other doctors' patients: `patients` SELECT `using (true)` | not flagged | 🔓 80 rows |
+| Delete other doctors' notes: `visit_notes` DELETE `using (auth.role() = 'authenticated')` | not flagged | 🔓 240 rows |
+| Weak rule on note updates: `visit_notes` UPDATE without `WITH CHECK` | not flagged | Warned, attack blocked |
+| Strangers read every profile: RLS disabled on `profiles` | flagged | 🔓 3 rows |
+| Add appointments as another doctor: `appointments` INSERT `WITH CHECK (true)` | flagged | 🔓 allowed |
+| View skips RLS: security definer view `patient_summary` | flagged | Found in schema |
+| Function runs as its owner: `search_patients` security definer + mutable `search_path` | flagged | Found in schema |
+| Leaked password protection off | flagged | Not checked |
+
+Advisor run on Nov 4, 2026. Red Row doesn't check `search_path` or auth settings, so use both tools.
+
 ## How it works (30-second version)
 1. Introspect catalog: tables, grants, policies, views, SECURITY DEFINER functions.
 2. Pick real owner ids from the data, or pin one by email (ids only, never row contents).

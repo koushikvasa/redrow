@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { ReplayLine } from '@/lib/story'
 import { AttackReplay } from './attack-replay'
 import { ScoreDial } from './score-dial'
@@ -16,6 +17,7 @@ type Props = {
   readonly blocked: number
   readonly replayKey: string
   readonly replayTitle: string
+  readonly aside?: ReactNode
 }
 
 /** Numbers stand out in red in a leaking headline, because the numbers are the point. */
@@ -36,22 +38,26 @@ function Headline({ text, isClean }: { readonly text: string; readonly isClean: 
   )
 }
 
-export function ProjectHero({ projectName, host, score, grade, headline, subline, totals, lines, blocked, replayKey, replayTitle }: Props) {
+export function ProjectHero({ projectName, host, score, grade, headline, subline, totals, lines, blocked, replayKey, replayTitle, aside }: Props) {
+  const storyLayout = aside ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] xl:items-start xl:gap-8' : ''
   return (
     <section className="grid items-center gap-4 pt-2 lg:grid-cols-[380px_1fr] lg:gap-12">
       <div className="flex justify-center">
         <ScoreDial score={score} grade={grade} size="lg" />
       </div>
-      <div className="min-w-0">
-        <p className="w-fit text-sm text-dim" title={host}>
-          {projectName}
-        </p>
-        <Headline text={headline} isClean={score >= 90} />
-        <p className="mt-2 mb-4 text-sm text-dim">{subline}</p>
-        <AttackReplay lines={lines} blocked={blocked} replayKey={replayKey} title={replayTitle} />
-        <div className="mt-3">
-          <SeverityCounts run={totals} compact />
+      <div className={`min-w-0 ${storyLayout}`}>
+        <div className="min-w-0">
+          <p className="w-fit text-sm text-dim" title={host}>
+            {projectName}
+          </p>
+          <Headline text={headline} isClean={score >= 90} />
+          <p className="mt-2 mb-4 text-sm text-dim">{subline}</p>
+          <AttackReplay lines={lines} blocked={blocked} replayKey={replayKey} title={replayTitle} />
+          <div className="mt-3">
+            <SeverityCounts run={totals} compact />
+          </div>
         </div>
+        {aside ? <div className="mt-4 min-w-0 xl:mt-0">{aside}</div> : null}
       </div>
     </section>
   )
