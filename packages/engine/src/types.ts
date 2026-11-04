@@ -15,6 +15,10 @@ export interface Finding {
   readonly detail: string
   readonly rowsExposed?: number
   readonly fixHint: string
+  /** The policy or policies behind the finding, where they can be named. */
+  readonly policy?: string
+  /** The probe that proved it. Absent when the finding comes from the catalog alone. */
+  readonly probe?: ProbeEvidence
 }
 
 // Probe vocabulary matches the check constraints on HQ's probe_results (docs/SCHEMAS.md).
@@ -30,12 +34,17 @@ export type ProbeAction =
   | 'delete_any'
 export type ProbeOutcome = 'allowed' | 'denied' | 'inconclusive' | 'not_applicable'
 
-export interface ProbeResult {
-  readonly table: string
+/** What a probe measured. Counts only, never row contents. */
+export interface ProbeEvidence {
   readonly actor: ProbeActor
   readonly action: ProbeAction
   readonly outcome: ProbeOutcome
   readonly rowCount: number | null
+}
+
+export interface ProbeResult extends ProbeEvidence {
+  readonly schema: string
+  readonly table: string
 }
 
 export interface TableSummary {
@@ -43,16 +52,28 @@ export interface TableSummary {
   readonly table: string
   readonly rlsEnabled: boolean
   readonly ownerColumn?: string
-  readonly totalRows: number
+  /** Null when the count itself hit the statement timeout. */
+  readonly totalRows: number | null
   readonly sensitive: readonly string[]
 }
+
+export interface Actors {
+  readonly userA: string
+  readonly userB: string
+}
+
+export type ScanPhase = 'introspect' | 'actors' | 'probes'
 
 /** The JSON report, and what `--upload` sends. ENGINE.md §5. */
 export interface ScanResult {
   readonly engineVersion: string
   readonly startedAt: string
   readonly durationMs: number
-  readonly target: { readonly host: string; readonly schemas: readonly string[] }
+  readonly target: {
+    readonly host: string
+    readonly database: string
+    readonly schemas: readonly string[]
+  }
   readonly score: number
   readonly grade: Grade
   readonly counts: SeverityCounts
@@ -60,7 +81,9 @@ export interface ScanResult {
   readonly findings: readonly Finding[]
   readonly probes: readonly ProbeResult[]
   /** Uuids only. */
-  readonly actors: { readonly userA: string; readonly userB: string }
+  readonly actors: Actors
+  /** Reasons this result may understate the leaks. */
+  readonly warnings: readonly string[]
 }
 
 export interface ScanOptions {
@@ -70,6 +93,13 @@ export interface ScanOptions {
   readonly readOnly?: boolean
   /** Table name to owner column, from `redrow.config.json`. Wins over detection. */
   readonly ownerColumns?: Readonly<Record<string, string>>
+  /** Limit the scan to these tables. Views and functions aren't tables, so they are left out too. */
+  readonly tables?: readonly string[]
+  /** Use these two users instead of picking them from the data. */
+  readonly actors?: Actors
+  /** Skip every probe for a role. Both default to true. */
+  readonly roles?: { readonly anon?: boolean; readonly authenticated?: boolean }
+  readonly onPhase?: (phase: ScanPhase) => void
 }
 
 export interface TablePrivileges {
@@ -85,6 +115,8 @@ export interface ColumnInfo {
   readonly type: string
   /** True when the column leads at least one index. */
   readonly indexed: boolean
+  /** False for generated and `generated always` identity columns, which can't be assigned to. */
+  readonly writable: boolean
 }
 
 export interface TableInfo {

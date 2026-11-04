@@ -17,6 +17,7 @@ export const column = (name: string, overrides: Partial<ColumnInfo> = {}): Colum
   name,
   type: 'uuid',
   indexed: false,
+  writable: true,
   ...overrides,
 })
 

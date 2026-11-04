@@ -1,0 +1,80 @@
+import { ENGINE_VERSION, SEVERITIES, type ScanOptions, type ScanResult } from '@redrow/engine'
+import { Command, CommanderError, Option } from 'commander'
+import type { Sql } from 'postgres'
+import { runInit } from './commands/init'
+import { runScan, type ScanFlags } from './commands/scan'
+import type { Connection, ConnectionTarget } from './connection'
+import { CliError } from './errors'
+import { EXIT_ERROR, EXIT_OK } from './exit-codes'
+import { sanitizeForTerminal } from './sanitize'
+
+export interface CliIO {
+  readonly stdout: (text: string) => void
+  readonly stderr: (text: string) => void
+  readonly env: Readonly<Record<string, string | undefined>>
+  readonly cwd: string
+  readonly colorSupported: boolean
+  /** Show a spinner on stderr. Only true on a real terminal. */
+  readonly spinner: boolean
+}
+
+export interface CliDeps {
+  readonly connect: (target: ConnectionTarget) => Connection
+  readonly scan: (sql: Sql, options: ScanOptions) => Promise<ScanResult>
+}
+
+function buildProgram(io: CliIO, deps: CliDeps, setExitCode: (code: number) => void): Command {
+  const program = new Command('redrow')
+    .description('AI wrote your RLS. Red Row proves whether it leaks.')
+    .version(ENGINE_VERSION)
+    .exitOverride()
+    .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
+
+  program
+    .command('init')
+    .description('Write a starter redrow.config.json')
+    .option('--force', 'overwrite an existing config')
+    .action((flags: { force?: boolean }) => {
+      setExitCode(runInit(flags.force ?? false, io))
+    })
+
+  program
+    .command('scan')
+    .description('Attack a database with simulated users and report what leaks. Every probe is rolled back.')
+    .option('--db <url>', 'connection string (falls back to REDROW_DB_URL)')
+    .option('--config <path>', 'config file (default: redrow.config.json, if present)')
+    .option('--only <tables>', 'comma-separated tables to scan')
+    .addOption(
+      new Option('--severity <level>', 'exit 1 on findings at or above this level')
+        .choices([...SEVERITIES].reverse())
+        .default('low'),
+    )
+    .option('--json', 'print the report as JSON')
+    .option('--verbose', 'list every probe')
+    .option('--no-color', 'disable color')
+    .option('--read-only', 'skip all write probes')
+    .option('--i-know-what-im-doing', "scan a remote database whose name doesn't contain test, demo or staging")
+    .action(async (flags: ScanFlags) => {
+      setExitCode(await runScan(flags, io, deps))
+    })
+
+  return program
+}
+
+/** Runs the CLI and returns the exit code: 0 clean, 1 findings, 2 could not run. */
+export async function run(argv: readonly string[], io: CliIO, deps: CliDeps): Promise<number> {
+  let exitCode = EXIT_OK
+  const program = buildProgram(io, deps, (code) => {
+    exitCode = code
+  })
+  try {
+    await program.parseAsync([...argv], { from: 'user' })
+    return exitCode
+  } catch (error: unknown) {
+    // Commander has already printed its own message.
+    if (error instanceof CommanderError) return error.exitCode === 0 ? EXIT_OK : EXIT_ERROR
+    const message = error instanceof CliError ? error.message : `Unexpected error: ${String(error)}`
+    io.stderr(`redrow: ${message.split('\n').map(sanitizeForTerminal).join('\n')}\n`)
+    return EXIT_ERROR
+  }
+}

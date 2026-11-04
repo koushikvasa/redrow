@@ -60,6 +60,7 @@ export interface ColumnRow {
   readonly attnum: number
   readonly column: string
   readonly type: string
+  readonly writable: boolean
 }
 
 export interface PolicyRow {
@@ -131,7 +132,8 @@ export async function fetchCatalog(sql: ISql, schemaNames: readonly string[]): P
       where c.relkind in ('r','p') and n.nspname = any(${schemas}::text[])
       order by 1, 2`,
     sql<ColumnRow[]>`
-      select c.oid as table_oid, a.attnum, a.attname as column, format_type(a.atttypid, a.atttypmod) as type
+      select c.oid as table_oid, a.attnum, a.attname as column, format_type(a.atttypid, a.atttypmod) as type,
+             (a.attgenerated = '' and a.attidentity <> 'a') as writable
       from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = any(${schemas}::text[]) and c.relkind in ('r','p') and a.attnum > 0 and not a.attisdropped
       order by 1, 2`,
@@ -235,6 +237,7 @@ function toTableInfo(
       name: c.column,
       type: c.type,
       indexed: indexedAttnums.has(c.attnum),
+      writable: c.writable,
     }))
   const fks = rows.authUserFks.filter((fk) => fk.table_oid === row.oid)
   const ownerColumn =

@@ -117,10 +117,10 @@ const tableRow = (overrides: Partial<TableRow> = {}): TableRow => ({
 const CATALOG: CatalogRows = {
   tables: [tableRow(), tableRow({ table: 'other', oid: 2 })],
   columns: [
-    { table_oid: 1, attnum: 1, column: 'id', type: 'uuid' },
-    { table_oid: 1, attnum: 2, column: 'clinician_id', type: 'uuid' },
-    { table_oid: 1, attnum: 3, column: 'dob', type: 'date' },
-    { table_oid: 2, attnum: 1, column: 'label', type: 'text' },
+    { table_oid: 1, attnum: 1, column: 'id', type: 'uuid', writable: false },
+    { table_oid: 1, attnum: 2, column: 'clinician_id', type: 'uuid', writable: true },
+    { table_oid: 1, attnum: 3, column: 'dob', type: 'date', writable: true },
+    { table_oid: 2, attnum: 1, column: 'label', type: 'text', writable: true },
   ],
   policies: [
     {

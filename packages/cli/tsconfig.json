@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@redrow/engine": ["../engine/src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "../../scripts"]
+}

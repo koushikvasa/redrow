@@ -155,6 +155,7 @@ export function makeFinding(
     severity: severity ?? rule.severity,
     schema: context.schema,
     ...(context.table === undefined ? {} : { table: context.table }),
+    ...(context.policy === undefined ? {} : { policy: context.policy }),
     title: rule.title,
     detail,
     fixHint: rule.fixHint(context),

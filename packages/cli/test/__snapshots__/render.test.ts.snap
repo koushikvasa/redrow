@@ -1,0 +1,133 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderReport snapshots > critical only 1`] = `
+"Red Row report: localhost/app_test (public)
+
+CRITICAL (1)
+
+  RR102  public.patients
+    Policy:  Authenticated users can view patients
+    Probe:   user_a:select_others (allowed, 80 rows)
+    Impact:  A signed-in user can read 80 rows of public.patients owned by other users.
+    Fix:     create policy "owner_read" on "public"."patients" for select to authenticated using ("clinician_id" = (select auth.uid()));
+
+Score 75/100, grade D
+1 finding: 1 critical, 0 high, 0 medium, 0 low. 3 tables, 12 probes, 1.2s.
+"
+`;
+
+exports[`renderReport snapshots > empty 1`] = `
+"Red Row report: localhost/app_test (public)
+
+No findings.
+
+Score 100/100, grade A
+0 findings: 0 critical, 0 high, 0 medium, 0 low. 3 tables, 12 probes, 1.2s.
+"
+`;
+
+exports[`renderReport snapshots > mixed severity 1`] = `
+"Red Row report: localhost/app_test (public)
+
+CRITICAL (1)
+
+  RR102  public.patients
+    Policy:  Authenticated users can view patients
+    Probe:   user_a:select_others (allowed, 80 rows)
+    Impact:  A signed-in user can read 80 rows of public.patients owned by other users.
+    Fix:     create policy "owner_read" on "public"."patients" for select to authenticated using ("clinician_id" = (select auth.uid()));
+
+HIGH (1)
+
+  RR007  public
+    Policy:  -
+    Probe:   catalog check
+    Impact:  public.search_patients(q text) runs with its owner's rights, skipping RLS, and anon can call it through the API.
+    Fix:     revoke execute on function "public"."search_patients"(q text) from public, anon, authenticated;
+
+MEDIUM (1)
+
+  RR004  public.visit_notes
+    Policy:  Authors update own notes
+    Probe:   catalog check
+    Impact:  Policy "Authors update own notes" has no WITH CHECK.
+    Fix:     alter policy "Authors update own notes" on "public"."visit_notes" with check ("author_id" = (select auth.uid()));
+
+LOW (1)
+
+  RR009  public.visit_notes
+    Policy:  -
+    Probe:   catalog check
+    Impact:  public.visit_notes.author_id is used in a policy but no index leads with it.
+    Fix:     create index on "public"."visit_notes" ("author_id");
+
+Leak matrix
+✔ allowed (with rows)   ✖ denied   ? inconclusive   - not applicable
+
+table            anon read  A others  A ins
+public.patients  ✖          ✔ 80      ?
+public.invoices  ✖          ✖
+
+Warning: 1 probe proved nothing either way (? in the matrix), so "no findings" doesn't cover them.
+
+Score 60/100, grade D
+4 findings: 1 critical, 1 high, 1 medium, 1 low. 3 tables, 12 probes (1 inconclusive), 1.2s.
+"
+`;
+
+exports[`renderReport snapshots > mixed severity, verbose 1`] = `
+"Red Row report: localhost/app_test (public)
+
+CRITICAL (1)
+
+  RR102  public.patients
+    Policy:  Authenticated users can view patients
+    Probe:   user_a:select_others (allowed, 80 rows)
+    Impact:  A signed-in user can read 80 rows of public.patients owned by other users.
+    Fix:     create policy "owner_read" on "public"."patients" for select to authenticated using ("clinician_id" = (select auth.uid()));
+
+HIGH (1)
+
+  RR007  public
+    Policy:  -
+    Probe:   catalog check
+    Impact:  public.search_patients(q text) runs with its owner's rights, skipping RLS, and anon can call it through the API.
+    Fix:     revoke execute on function "public"."search_patients"(q text) from public, anon, authenticated;
+
+MEDIUM (1)
+
+  RR004  public.visit_notes
+    Policy:  Authors update own notes
+    Probe:   catalog check
+    Impact:  Policy "Authors update own notes" has no WITH CHECK.
+    Fix:     alter policy "Authors update own notes" on "public"."visit_notes" with check ("author_id" = (select auth.uid()));
+
+LOW (1)
+
+  RR009  public.visit_notes
+    Policy:  -
+    Probe:   catalog check
+    Impact:  public.visit_notes.author_id is used in a policy but no index leads with it.
+    Fix:     create index on "public"."visit_notes" ("author_id");
+
+Leak matrix
+✔ allowed (with rows)   ✖ denied   ? inconclusive   - not applicable
+
+table            anon read  A others  A ins
+public.patients  ✖          ✔ 80      ?
+public.invoices  ✖          ✖
+
+Probes
+
+  public.patients  anon:select_all  denied  0 rows
+  public.patients  user_a:select_others  allowed  80 rows
+  public.patients  user_a:insert_other  inconclusive
+  public.invoices  anon:select_all  denied  0 rows
+  public.invoices  user_a:select_others  denied  0 rows
+
+Warning: 1 probe proved nothing either way (? in the matrix), so "no findings" doesn't cover them.
+
+Score 60/100, grade D
+4 findings: 1 critical, 1 high, 1 medium, 1 low. 3 tables, 12 probes (1 inconclusive), 1.2s.
+"
+`;

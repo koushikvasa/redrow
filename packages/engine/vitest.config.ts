@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
+    globalSetup: ['../../scripts/vitest-global-setup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

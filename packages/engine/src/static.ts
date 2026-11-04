@@ -18,7 +18,8 @@ const API_ROLES: ReadonlySet<string> = new Set(['public', 'anon', 'authenticated
 const appliesToApi = (policy: PolicyInfo): boolean => policy.roles.some((role) => API_ROLES.has(role))
 
 /** Only a permissive policy can widen access; a restrictive one can only narrow it. */
-const grantsApiAccess = (policy: PolicyInfo): boolean => policy.permissive && appliesToApi(policy)
+export const grantsApiAccess = (policy: PolicyInfo): boolean =>
+  policy.permissive && appliesToApi(policy)
 
 const hasAnyPrivilege = (p: TablePrivileges): boolean => p.select || p.insert || p.update || p.delete
 

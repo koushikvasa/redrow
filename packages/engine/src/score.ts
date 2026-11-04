@@ -7,6 +7,13 @@ const SEVERITY_WEIGHTS: Readonly<Record<Severity, number>> = {
   low: 1,
 }
 
+/** Most severe first. */
+export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low']
+
+/** True when `severity` is at least as serious as `threshold`. */
+export const meetsSeverity = (severity: Severity, threshold: Severity): boolean =>
+  SEVERITIES.indexOf(severity) <= SEVERITIES.indexOf(threshold)
+
 /** Keeps performance hints from dominating the score. */
 const LOW_PENALTY_CAP = 10
 
