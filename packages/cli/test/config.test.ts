@@ -7,6 +7,28 @@ import { DEFAULT_CONFIG_FILE, STARTER_CONFIG, loadConfig, parseConfig } from '..
 const A = '00000000-0000-4000-8000-00000000000a'
 const B = '00000000-0000-4000-8000-00000000000b'
 
+describe('the shipped root config', () => {
+  const read = (path: string): Record<string, never> => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
+  const root = parseConfig(read('../../../redrow.config.json'), 'redrow.config.json')
+  const entry = root.allowHosts[0] as string
+
+  it('pins Dr. Ana on the CareNote host/login in allowHosts, and nowhere else', () => {
+    expect(root.actors).toEqual({ [entry]: { userA: 'dr.ana@carenote.test' } })
+    expect(Object.keys(root.personas)).toEqual([entry])
+  })
+
+  it('uses the same words as the dashboard', () => {
+    const { tables: _rootTables, ...rootWords } = root.personas[entry] as NonNullable<(typeof root.personas)[string]>
+    const hq = parseConfig(read('../../../hq/redrow.config.json'), 'hq').personas['CareNote demo']
+    const { tables: _hqTables, ...hqWords } = hq as NonNullable<typeof hq>
+    expect(rootWords).toEqual(hqWords)
+  })
+
+  it('declares no public tables, which would hide anon reads on a cloner\'s own schema', () => {
+    expect(root.publicTables).toEqual([])
+  })
+})
+
 describe('actors', () => {
   it('accepts a pinned user A by email, per project', () => {
     const parsed = parseConfig({ actors: { 'CareNote demo': { userA: 'dr.ana@carenote.test' } } }, 'c.json')
@@ -57,6 +79,7 @@ describe('parseConfig', () => {
       allowHosts: [],
       publicTables: [],
       actors: {},
+      personas: {},
     })
   })
 

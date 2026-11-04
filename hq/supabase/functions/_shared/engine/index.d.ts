@@ -539,8 +539,10 @@ declare function impersonate(tx: TransactionSql, role: ProbeRole, sub?: string):
 /** Back to the connecting role, to measure a probe's effect within the same transaction. */
 declare function stopImpersonating(tx: TransactionSql): Promise<void>;
 
+/** Exported so a renderer can stop calling a randomly picked user by the pinned user's name. */
+declare const PIN_NOT_FOUND_WARNING = "The pinned user A was not found in auth.users, so user A was picked automatically.";
 /** Introspect, apply static rules, pick actors, probe, score. Every probe is rolled back. */
 declare function scan(sql: Sql, opts?: ScanOptions): Promise<ScanResult>;
 
-export { ENGINE_VERSION, ImpersonationError, REPORT_VERSION, RULES, SEVERITIES, TxSetupError, applyDeclaredExposure, buildIntrospection, detectOwnerColumn, findSensitiveColumns, findingsFromProbes, gatherTableStats, grantsApiAccess, impersonate, inRolledBackTx, introspect, makeFinding, meetsSeverity, mergeFindings, quoteIdent, runStaticRules, runTableProbes, scan, scoreFindings, stopImpersonating, toReport, toScanRows, usesBareAuthUid, wrapBareAuthUid };
+export { ENGINE_VERSION, ImpersonationError, PIN_NOT_FOUND_WARNING, REPORT_VERSION, RULES, SEVERITIES, TxSetupError, applyDeclaredExposure, buildIntrospection, detectOwnerColumn, findSensitiveColumns, findingsFromProbes, gatherTableStats, grantsApiAccess, impersonate, inRolledBackTx, introspect, makeFinding, meetsSeverity, mergeFindings, quoteIdent, runStaticRules, runTableProbes, scan, scoreFindings, stopImpersonating, toReport, toScanRows, usesBareAuthUid, wrapBareAuthUid };
 export type { Actors, ColumnInfo, Finding, FindingRow, FixHintContext, Grade, Introspection, PolicyCommand, PolicyInfo, ProbeAction, ProbeActor, ProbeEvidence, ProbeOutcome, ProbeResult, ProbeRole, ProbeRow, Report, ReportEvidence, ReportFinding, ReportSummary, RuleDefinition, RuleId, ScanOptions, ScanPhase, ScanResult, ScanRows, ScanRunRow, ScanSource, ScoreSummary, SecurityDefinerFunction, Severity, SeverityCounts, TableInfo, TablePrivileges, TableSummary, ViewInfo };

@@ -133,7 +133,7 @@ const scoreOf = (score: number, grade: string): string => `${score}/100 (${grade
 
 async function applyAndRescan(run: FixRun, migration: Migration, config: RedrowConfig, deps: CliDeps): Promise<ScanResult> {
   await run.fix.apply(run.sql, migration.statements)
-  const options = toScanOptions({ severity: 'low', color: false }, config)
+  const options = toScanOptions({ severity: 'low', color: false }, config, run.target)
   const after = await deps.scan(run.sql, { ...options, schemas: run.report.database.schemas })
   const before = run.report.summary
   run.io.stdout(`Score ${scoreOf(before.score, before.grade)} → ${scoreOf(after.score, after.grade)}\n`)

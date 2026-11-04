@@ -19,6 +19,9 @@ import { ENGINE_VERSION } from './version'
 
 export { ENGINE_VERSION } from './version'
 
+/** Exported so a renderer can stop calling a randomly picked user by the pinned user's name. */
+export const PIN_NOT_FOUND_WARNING = 'The pinned user A was not found in auth.users, so user A was picked automatically.'
+
 const DEFAULT_SCHEMAS: readonly string[] = ['public']
 
 /** Tables probed at once. Probes within one table always run one after another. */
@@ -85,7 +88,7 @@ export async function scan(sql: Sql, opts: ScanOptions = {}): Promise<ScanResult
   const wantsPin = opts.actors === undefined && opts.userAEmail !== undefined
   const pinnedUserA = wantsPin ? await findUserIdByEmail(sql, opts.userAEmail as string) : undefined
   // No email here: reports get shared.
-  const pinWarnings = wantsPin && pinnedUserA === undefined ? ['The pinned user A was not found in auth.users, so user A was picked automatically.'] : []
+  const pinWarnings = wantsPin && pinnedUserA === undefined ? [PIN_NOT_FOUND_WARNING] : []
   const actors: Actors =
     opts.actors ?? (await resolveActors(sql, chooseActors(stats.map((s) => s.owners), pinnedUserA)))
 

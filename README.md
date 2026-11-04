@@ -148,7 +148,7 @@ node hq/scripts/seed-history.mjs
 - Each sweep writes about 100 rows. To stop them: `select cron.unschedule('redrow-sweep')`.
 - Scan HQ itself: `npm run scan -- --config hq/redrow.config.json --db "$HQ_DB_URL"`.
 - Send any scan to HQ: set `REDROW_INGEST_URL` and `REDROW_INGEST_KEY`, and add `--upload --project "<name>"`.
-- Name the attackers in `hq/redrow.config.json`: `personas` sets the dashboard's words, and `actors` pins user A by email. Run `npm run sync:web` after changing personas.
+- Name the attackers: `personas` sets the words, and `actors` pins user A by email, keyed by project name or by `host/login`. The dashboard reads `hq/redrow.config.json`, so run `npm run sync:web` after changing it. The terminal reads whichever config it's given, and only uses a persona when its pinned user was found.
 
 `apps/web` is a standalone Next.js app, kept out of the root workspace so that scanning from a clone doesn't download it. It reads HQ with the anon key only, so it shows what RLS shows anyone.
 

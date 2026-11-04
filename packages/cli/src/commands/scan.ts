@@ -1,8 +1,8 @@
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { toReport, type Report, type ScanOptions, type ScanResult, type Severity } from '@redrow/engine'
+import { PIN_NOT_FOUND_WARNING, toReport, type Report, type ScanOptions, type ScanResult, type Severity } from '@redrow/engine'
 import type { CliDeps, CliIO } from '../cli'
-import { DEFAULT_CONFIG_FILE, loadConfig, type RedrowConfig } from '../config'
+import { DEFAULT_CONFIG_FILE, entryFor, loadConfig, type Persona, type RedrowConfig } from '../config'
 import {
   PRODUCTION_OVERRIDE_FLAG,
   assertAllowedTarget,
@@ -45,9 +45,9 @@ const parseOnly = (only: string | undefined): readonly string[] | undefined =>
     .map((name) => name.trim())
     .filter((name) => name !== '')
 
-export function toScanOptions(flags: ScanFlags, config: RedrowConfig): ScanOptions {
+export function toScanOptions(flags: ScanFlags, config: RedrowConfig, target: ConnectionTarget): ScanOptions {
   const { userA, userB } = config.tenants
-  const pinnedEmail = flags.project === undefined ? undefined : config.actors[flags.project]?.userA
+  const pinnedEmail = entryFor(config.actors, target, flags.project)?.userA
   return {
     ...(pinnedEmail === undefined ? {} : { userAEmail: pinnedEmail }),
     schemas: config.schemas,
@@ -106,14 +106,29 @@ function writeHtml(report: Report, path: string, io: CliIO): void {
   io.stderr(`HTML report written to ${sanitizeForTerminal(path)}\n`)
 }
 
-function writeReport(result: ScanResult, flags: ScanFlags, io: CliIO): void {
+/**
+ * The persona's words, but only when its user A really is the attacker: a persona with nobody
+ * pinned, or whose pin wasn't found, would call a randomly picked user by that name.
+ */
+function personaForReport(result: ScanResult, flags: ScanFlags, config: RedrowConfig, target: ConnectionTarget): Persona | undefined {
+  const isPinned = entryFor(config.actors, target, flags.project) !== undefined && !result.warnings.includes(PIN_NOT_FOUND_WARNING)
+  return isPinned ? entryFor(config.personas, target, flags.project) : undefined
+}
+
+function writeReport(result: ScanResult, flags: ScanFlags, io: CliIO, persona: Persona | undefined): void {
   const report = toReport(result)
   if (flags.html !== undefined) writeHtml(report, flags.html, io)
   if (flags.json === true) {
     io.stdout(`${toTerminalSafeJson(report)}\n`)
     return
   }
-  io.stdout(renderReport(report, { color: flags.color && io.colorSupported, verbose: flags.verbose ?? false }))
+  io.stdout(
+    renderReport(report, {
+      color: flags.color && io.colorSupported,
+      verbose: flags.verbose ?? false,
+      ...(persona === undefined ? {} : { persona }),
+    }),
+  )
 }
 
 async function runProbes(
@@ -126,7 +141,7 @@ async function runProbes(
   const connection = deps.connect(target)
   const progress = createProgress(io.spinner && flags.json !== true)
   try {
-    return await deps.scan(connection.sql, { ...toScanOptions(flags, config), onPhase: progress.onPhase })
+    return await deps.scan(connection.sql, { ...toScanOptions(flags, config, target), onPhase: progress.onPhase })
   } catch (error: unknown) {
     throw new CliError(describeDbError(error, target))
   } finally {
@@ -150,7 +165,7 @@ export async function runScan(flags: ScanFlags, io: CliIO, deps: CliDeps): Promi
   announceTarget(target, config, io)
   announceDeclaredTables(flags, config, io)
   const result = await runProbes(flags, config, target, io, deps)
-  writeReport(result, flags, io)
+  writeReport(result, flags, io, personaForReport(result, flags, config, target))
   if (upload !== undefined) await uploadReport(toReport(result), upload, io)
   const code = exitCodeFor(result.findings, flags.severity)
   if (code === EXIT_OK && provedNothing(result)) {

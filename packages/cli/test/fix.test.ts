@@ -426,6 +426,14 @@ describe('redrow fix', () => {
       expect(io.out()).toContain('96/100')
     })
 
+    it('rescans as the same pinned attacker', async () => {
+      const cwd = setup()
+      writeFileSync(join(cwd, 'redrow.config.json'), JSON.stringify({ actors: { 'localhost/u': { userA: 'dr.ana@carenote.test' } } }))
+      const deps = fixDeps()
+      await run(['fix', '--from', 'report.json', '--db', DB, '--apply', '-y'], captureIO({ cwd }), deps)
+      expect(deps.calls.scanOptions[0]).toMatchObject({ userAEmail: 'dr.ana@carenote.test' })
+    })
+
     it('rescans the schemas in the report, with the config\'s options', async () => {
       const cwd = setup()
       writeFileSync(join(cwd, 'redrow.config.json'), JSON.stringify({ publicTables: ['p'] }))

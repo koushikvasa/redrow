@@ -1149,6 +1149,7 @@ function toScanRows(report, projectId, source) {
 }
 
 // src/index.ts
+var PIN_NOT_FOUND_WARNING = "The pinned user A was not found in auth.users, so user A was picked automatically.";
 var DEFAULT_SCHEMAS = ["public"];
 var TABLE_CONCURRENCY = 4;
 var toTableSummary = (table, totalRows) => ({
@@ -1202,7 +1203,7 @@ async function scan(sql, opts = {}) {
   );
   const wantsPin = opts.actors === void 0 && opts.userAEmail !== void 0;
   const pinnedUserA = wantsPin ? await findUserIdByEmail(sql, opts.userAEmail) : void 0;
-  const pinWarnings = wantsPin && pinnedUserA === void 0 ? ["The pinned user A was not found in auth.users, so user A was picked automatically."] : [];
+  const pinWarnings = wantsPin && pinnedUserA === void 0 ? [PIN_NOT_FOUND_WARNING] : [];
   const actors = opts.actors ?? await resolveActors(sql, chooseActors(stats.map((s) => s.owners), pinnedUserA));
   opts.onPhase?.("probes");
   const publicTables = opts.publicTables ?? [];
@@ -1249,6 +1250,7 @@ async function scan(sql, opts = {}) {
 export {
   ENGINE_VERSION,
   ImpersonationError,
+  PIN_NOT_FOUND_WARNING,
   REPORT_VERSION,
   RULES,
   SEVERITIES,

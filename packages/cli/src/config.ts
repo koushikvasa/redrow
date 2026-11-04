@@ -67,8 +67,9 @@ const configSchema = z.strictObject({
   ownerColumns: z.record(z.string(), z.string().min(1)).default({}),
   allowHosts: z.array(exactHostName).default([]),
   publicTables: z.array(z.string().min(1)).default([]),
-  personas: z.record(z.string(), personaSchema).optional(),
-  // By project, like personas: one config can cover databases with different users.
+  // personas and actors are keyed by project name, or by the host/login of one database,
+  // because one config can cover databases with different users.
+  personas: z.record(z.string(), personaSchema).default({}),
   actors: z.record(z.string(), z.strictObject({ userA: z.email() })).default({}),
 })
 
@@ -80,8 +81,21 @@ export interface RedrowConfig {
   readonly ownerColumns: Readonly<Record<string, string>>
   readonly allowHosts: readonly string[]
   readonly publicTables: readonly string[]
-  /** By project name: the auth.users email to pin as user A. `tenants` wins over this. */
+  /** The auth.users email to pin as user A, by project or host/login. `tenants` wins over this. */
   readonly actors: Readonly<Record<string, { readonly userA: string }>>
+  /** Who the attackers are, by project or host/login, in the words a report should use. */
+  readonly personas: Readonly<Record<string, Persona>>
+}
+
+export type Persona = z.infer<typeof personaSchema>
+
+/** The entry for this scan: named by --project, or matching exactly the host and login connected to. */
+export function entryFor<T>(
+  entries: Readonly<Record<string, T>>,
+  target: { readonly host: string; readonly username: string },
+  project: string | undefined,
+): T | undefined {
+  return (project === undefined ? undefined : entries[project]) ?? entries[`${target.host}/${target.username}`]
 }
 
 export const STARTER_CONFIG = `${JSON.stringify(
@@ -123,7 +137,7 @@ export function parseConfig(raw: unknown, source: string): RedrowConfig {
     })
     throw new CliError(`Invalid config in ${source}:\n${problems.join('\n')}`)
   }
-  const { schemas, tables, roles, tenants, ownerColumns, allowHosts, publicTables, actors } = result.data
+  const { schemas, tables, roles, tenants, ownerColumns, allowHosts, publicTables, actors, personas } = result.data
   return {
     schemas,
     tables,
@@ -133,6 +147,7 @@ export function parseConfig(raw: unknown, source: string): RedrowConfig {
     allowHosts,
     publicTables,
     actors,
+    personas,
   }
 }
 
