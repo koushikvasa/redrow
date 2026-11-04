@@ -53,7 +53,7 @@ h2 { font-size: 16px; letter-spacing: .3em; text-transform: uppercase; color: va
 .legend { letter-spacing: 0; text-transform: none; font-weight: 400; display: flex; gap: 20px; flex-wrap: wrap; font-size: 15px; }
 .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 7px; vertical-align: -1px; }
 .key-leak { background: var(--leak); } .key-denied { background: rgba(74,222,128,.28); }
-.key-own { background: var(--ok); }
+.key-own { background: var(--ok); } .key-open { background: rgba(90,200,232,.3); }
 .key-na { background: #1b1d22; border: 1px solid var(--line); } .key-declared { background: var(--info); }
 .matrix-wrap { overflow-x: auto; overflow-y: hidden; }
 table.matrix { border-collapse: separate; border-spacing: 3px; width: 100%; table-layout: fixed; min-width: 1100px; }
@@ -69,6 +69,7 @@ table.matrix { border-collapse: separate; border-spacing: 3px; width: 100%; tabl
 .cell.denied { color: rgba(74,222,128,.7); background: rgba(74,222,128,.09); font-weight: 400; }
 .cell.own { color: var(--ok); background: rgba(74,222,128,.16); }
 .cell.declared { color: #06222b; background: var(--info); }
+.cell.open { color: var(--info); background: rgba(90,200,232,.12); }
 .cell.na { color: var(--faint); background: #15171b; font-weight: 400; }
 .group-title { font-size: 22px; font-weight: 700; margin: 30px 0 10px; display: flex; gap: 14px; align-items: baseline; }
 .group-title small { color: var(--dim); font-weight: 400; font-size: 16px; }

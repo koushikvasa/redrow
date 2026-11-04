@@ -139,6 +139,9 @@ describe('matrixRows', () => {
 
   const cell = (result: ReturnType<typeof rows>, column: string) => result[0]?.cells.find((c) => c.column === column)
 
+  const finding = (id: string, severity = 'high') =>
+    ({ ...DECLARED_ONLY_REPORT.findings[0]!, id, severity, table: 't' }) as (typeof MIXED_REPORT.findings)[number]
+
   it('has one row per table, in the order probes came', () => {
     const result = rows([probe('b', 'anon', 'select_all', 'denied', 0), probe('a', 'anon', 'select_all', 'denied', 0)])
     expect(result.map((r) => r.table)).toEqual(['public.b', 'public.a'])
@@ -160,10 +163,47 @@ describe('matrixRows', () => {
   })
 
   it('marks a cross-user allowed cell as a leak, with its count', () => {
-    expect(cell(rows([probe('t', 'user_a', 'select_others', 'allowed', 80)]), 'others-read')).toMatchObject({
+    expect(cell(rows([probe('t', 'user_a', 'select_others', 'allowed', 80)], [finding('RR102')]), 'others-read')).toMatchObject({
       state: 'leak',
       count: 80,
     })
+  })
+
+  // A 100/A report must not show red: being able to read a board that's meant to be public isn't a leak.
+  it('does not call an allowed cell a leak unless a finding backs it', () => {
+    expect(cell(rows([probe('t', 'anon', 'select_all', 'allowed', 30)]), 'anon-read')).toMatchObject({
+      state: 'open',
+      count: 30,
+      intensity: 0,
+    })
+  })
+
+  it('needs the finding to be about that cell', () => {
+    const result = rows([probe('t', 'anon', 'select_all', 'allowed', 3)], [finding('RR104')])
+    expect(cell(result, 'anon-read')?.state).toBe('open')
+  })
+
+  it('needs the finding to be on that table', () => {
+    const other = { ...finding('RR101'), table: 'elsewhere' }
+    expect(cell(rows([probe('t', 'anon', 'select_all', 'allowed', 3)], [other]), 'anon-read')?.state).toBe('open')
+  })
+
+  it.each([
+    ['RR001', 'anon', 'select_all', 'anon-read'],
+    ['RR101', 'anon', 'select_all', 'anon-read'],
+    ['RR106', 'anon', 'update_any', 'anon-update'],
+    ['RR002', 'anon', 'delete_any', 'anon-delete'],
+    ['RR003', 'user_a', 'select_all', 'others-read'],
+    ['RR103', 'user_a', 'update_other', 'others-update'],
+    ['RR104', 'user_a', 'delete_other', 'others-delete'],
+    ['RR105', 'user_a', 'insert_other', 'others-insert'],
+  ])('%s backs a leak for %s %s', (id, actor, action, column) => {
+    expect(cell(rows([probe('t', actor, action, 'allowed', 2)], [finding(id)]), column)?.state).toBe('leak')
+  })
+
+  it('does not count a declared finding as backing a leak', () => {
+    const result = rows([probe('t', 'user_a', 'select_others', 'allowed', 3)], [finding('RR102', 'info')])
+    expect(cell(result, 'others-read')?.state).toBe('open')
   })
 
   it('marks reading your own rows as expected, not a leak', () => {
@@ -171,7 +211,7 @@ describe('matrixRows', () => {
   })
 
   it('marks an allowed insert with no count as a leak', () => {
-    expect(cell(rows([probe('t', 'user_a', 'insert_other', 'allowed', null)]), 'others-insert')).toMatchObject({
+    expect(cell(rows([probe('t', 'user_a', 'insert_other', 'allowed', null)], [finding('RR105')]), 'others-insert')).toMatchObject({
       state: 'leak',
       count: null,
     })
@@ -191,10 +231,10 @@ describe('matrixRows', () => {
   })
 
   it('scales leak intensity by count, with the biggest leak at full strength', () => {
-    const result = rows([
-      probe('t', 'user_a', 'select_others', 'allowed', 1),
-      probe('t', 'user_a', 'delete_other', 'allowed', 240),
-    ])
+    const result = rows(
+      [probe('t', 'user_a', 'select_others', 'allowed', 1), probe('t', 'user_a', 'delete_other', 'allowed', 240)],
+      [finding('RR102'), finding('RR104')],
+    )
     const small = cell(result, 'others-read')?.intensity ?? 0
     const big = cell(result, 'others-delete')?.intensity ?? 0
     expect(big).toBe(1)

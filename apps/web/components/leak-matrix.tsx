@@ -17,7 +17,8 @@ const LEGEND = [
 export function LeakMatrix({ probes, findings }: { readonly probes: readonly ProbeRow[]; readonly findings: readonly FindingRow[] }) {
   const rows = buildMatrix(probes, findings)
   if (rows.length === 0) return null
-  const hasDeclared = rows.some((row) => row.cells.some((cell) => cell.state === 'declared'))
+  const hasState = (state: MatrixCell['state']): boolean => rows.some((row) => row.cells.some((cell) => cell.state === state))
+  const hasDeclared = hasState('declared')
   return (
     <section className="mt-8">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
@@ -29,6 +30,12 @@ export function LeakMatrix({ probes, findings }: { readonly probes: readonly Pro
               {label}
             </li>
           ))}
+          {hasState('open') ? (
+            <li className="flex items-center gap-2">
+              <i className="inline-block size-3 bg-info/30" />
+              allowed, not a finding
+            </li>
+          ) : null}
           {hasDeclared ? (
             <li className="flex items-center gap-2">
               <i className="inline-block size-3 bg-info" />

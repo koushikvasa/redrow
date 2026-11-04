@@ -1,4 +1,6 @@
-// Called by pg_cron every minute: scans each demo database in turn and stores the results.
+// Called by pg_cron every 20 seconds: scans each demo database in turn and stores the results.
+// About every other pg_net request stalls before it gets here, so cron retries often and this
+// skips a database swept in the last 50 seconds, which keeps it to about one scan a minute.
 // Every probe is rolled back, as in any scan. Only the stored result persists.
 import postgres, { type Sql } from 'postgres'
 import { bearerToken, json, safeEqual } from '../_shared/auth.ts'
@@ -25,6 +27,11 @@ async function sweepTarget(hq: Sql, target: Target) {
   const found = await hq<{ id: string }[]>`select id from public.projects where name = ${target.project} limit 1`
   const projectId = found[0]?.id
   if (projectId === undefined) throw new Error('project not seeded')
+  const recent = await hq`
+    select 1 from public.scan_runs
+    where project_id = ${projectId} and source = 'sweep' and created_at > now() - interval '50 seconds'
+    limit 1`
+  if (recent.length > 0) return { project: target.project, skipped: true }
   const url = Deno.env.get(target.urlEnv)
   if (url === undefined) throw new Error('database url not set')
   const source = postgres(url, CONNECTION_OPTIONS)

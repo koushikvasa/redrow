@@ -71,6 +71,7 @@ body {
 .cell-denied { color: rgba(74, 222, 128, 0.7); background: rgba(74, 222, 128, 0.09); font-weight: 400; }
 .cell-own { color: var(--color-ok); background: rgba(74, 222, 128, 0.16); }
 .cell-declared { color: #06222b; background: var(--color-info); }
+.cell-open { color: var(--color-info); background: rgba(90, 200, 232, 0.12); }
 .cell-na { color: var(--color-faint); background: #15171b; font-weight: 400; }
 
 .live-dot {

@@ -2,7 +2,8 @@ import { SEVERITIES, type ProbeResult, type Report, type ReportFinding, type Sev
 import { sanitizeForTerminal } from '../sanitize'
 import { REPORT_CSS, REPORT_JS } from './html-assets'
 
-export type CellState = 'leak' | 'denied' | 'own' | 'declared' | 'na'
+/** `open` means the probe got through but no finding says that's a problem, such as a public board. */
+export type CellState = 'leak' | 'open' | 'denied' | 'own' | 'declared' | 'na'
 
 export interface MatrixCell {
   readonly column: string
@@ -17,17 +18,20 @@ export interface MatrixRow {
   readonly cells: readonly MatrixCell[]
 }
 
+/** `rules`: the findings that make an allowed cell a leak. RLS being off (RR001, RR002) backs every cell. */
 const COLUMNS = [
-  { id: 'anon-read', group: 'anon', label: 'read', probes: [['anon', 'select_all']] },
-  { id: 'anon-insert', group: 'anon', label: 'insert', probes: [['anon', 'insert_other']] },
-  { id: 'anon-update', group: 'anon', label: 'update', probes: [['anon', 'update_any']] },
-  { id: 'anon-delete', group: 'anon', label: 'delete', probes: [['anon', 'delete_any']] },
-  { id: 'own-read', group: 'own', label: 'read', probes: [['user_a', 'select_own']] },
-  { id: 'others-read', group: 'others', label: 'read', probes: [['user_a', 'select_others'], ['user_a', 'select_all']] },
-  { id: 'others-insert', group: 'others', label: 'insert', probes: [['user_a', 'insert_other']] },
-  { id: 'others-update', group: 'others', label: 'update', probes: [['user_a', 'update_other']] },
-  { id: 'others-delete', group: 'others', label: 'delete', probes: [['user_a', 'delete_other']] },
+  { id: 'anon-read', group: 'anon', label: 'read', rules: ['RR101'], probes: [['anon', 'select_all']] },
+  { id: 'anon-insert', group: 'anon', label: 'insert', rules: ['RR106'], probes: [['anon', 'insert_other']] },
+  { id: 'anon-update', group: 'anon', label: 'update', rules: ['RR106'], probes: [['anon', 'update_any']] },
+  { id: 'anon-delete', group: 'anon', label: 'delete', rules: ['RR106'], probes: [['anon', 'delete_any']] },
+  { id: 'own-read', group: 'own', label: 'read', rules: [], probes: [['user_a', 'select_own']] },
+  { id: 'others-read', group: 'others', label: 'read', rules: ['RR102', 'RR003'], probes: [['user_a', 'select_others'], ['user_a', 'select_all']] },
+  { id: 'others-insert', group: 'others', label: 'insert', rules: ['RR105'], probes: [['user_a', 'insert_other']] },
+  { id: 'others-update', group: 'others', label: 'update', rules: ['RR103'], probes: [['user_a', 'update_other']] },
+  { id: 'others-delete', group: 'others', label: 'delete', rules: ['RR104'], probes: [['user_a', 'delete_other']] },
 ] as const
+
+const RLS_OFF_RULES: readonly string[] = ['RR001', 'RR002']
 
 const GROUPS = [
   { id: 'anon', label: 'Anon', span: 4 },
@@ -68,6 +72,7 @@ function cellFor(
   probes: readonly ProbeResult[],
   isDeclared: boolean,
   biggestLeak: number,
+  counted: ReadonlySet<string>,
 ): MatrixCell {
   const probe = probes.find((p) => column.probes.some(([actor, action]) => p.actor === actor && p.action === action))
   const base = { column: column.id, count: probe?.rowCount ?? null, intensity: 0 }
@@ -77,6 +82,8 @@ function cellFor(
   if (probe.outcome === 'denied') return { ...base, state: 'denied' }
   if (column.id === 'own-read') return { ...base, state: 'own' }
   if (column.id === 'anon-read' && isDeclared) return { ...base, state: 'declared' }
+  const isBacked = [...column.rules, ...RLS_OFF_RULES].some((rule) => counted.has(rule))
+  if (!isBacked) return { ...base, state: 'open' }
   const count = probe.rowCount ?? 1
   return { ...base, state: 'leak', intensity: Math.log(count + 1) / Math.log(biggestLeak + 1) }
 }
@@ -93,13 +100,17 @@ export function matrixRows(report: Report): MatrixRow[] {
   const biggestLeak = Math.max(1, ...probes.filter((p) => p.outcome === 'allowed').map((p) => p.rowCount ?? 1))
   return names.map((name) => {
     const own = probes.filter((p) => tableName(p) === name)
-    return { table: name, cells: COLUMNS.map((c) => cellFor(c, own, declared.has(name), biggestLeak)) }
+    const counted = new Set(
+      report.findings.filter((f) => f.severity !== 'info' && `${f.evidence.schema}.${f.table}` === name).map((f) => f.id),
+    )
+    return { table: name, cells: COLUMNS.map((c) => cellFor(c, own, declared.has(name), biggestLeak, counted)) }
   })
 }
 
 function cellText(cell: MatrixCell): string {
   switch (cell.state) {
     case 'leak':
+    case 'open':
     case 'own':
     case 'declared':
       return cell.count === null ? '✔' : String(cell.count)
@@ -113,7 +124,9 @@ function cellText(cell: MatrixCell): string {
 function renderMatrix(report: Report): string {
   const rows = matrixRows(report)
   if (rows.length === 0) return ''
-  const hasDeclared = rows.some((r) => r.cells.some((c) => c.state === 'declared'))
+  const hasState = (state: CellState): boolean => rows.some((r) => r.cells.some((c) => c.state === state))
+  const hasDeclared = hasState('declared')
+  const openKey = hasState('open') ? '<span><i class="key-open"></i>allowed, not a finding</span>' : ''
   let n = 0
   const body = rows
     .map((row) => {
@@ -128,7 +141,7 @@ function renderMatrix(report: Report): string {
     .join('')
   return `<h2><span>Leak matrix</span><span class="legend">
 <span><i class="key-leak"></i>leak, with rows</span><span><i class="key-own"></i>own rows, expected</span><span><i class="key-denied"></i>denied</span>
-<span><i class="key-na"></i>n/a or inconclusive</span>${hasDeclared ? '<span><i class="key-declared"></i>meant to be public</span>' : ''}</span></h2>
+<span><i class="key-na"></i>n/a or inconclusive</span>${openKey}${hasDeclared ? '<span><i class="key-declared"></i>meant to be public</span>' : ''}</span></h2>
 <div class="matrix-wrap"><table class="matrix"><thead>
 <tr><th class="corner"></th>${GROUPS.map((g) => `<th class="group" colspan="${g.span}" scope="colgroup">${g.label}</th>`).join('')}</tr>
 <tr><th></th>${COLUMNS.map((c) => `<th scope="col">${c.label}</th>`).join('')}</tr>
