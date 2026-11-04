@@ -1,0 +1,86 @@
+{
+  "attempt": {
+    "step": "feature",
+    "ok": false,
+    "code": "42501",
+    "error": "new row violates row-level security policy for table \"notes\""
+  },
+  "attacks": [
+    {
+      "step": "read other users' notes",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "write a note into Ben's account",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"notes\""
+    },
+    {
+      "step": "read other users' notes afterwards",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "change Ben's notes",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "delete Ben's notes",
+      "ok": true,
+      "rows": 0
+    }
+  ],
+  "scans": {
+    "ana": {
+      "readOnly": {
+        "score": 100,
+        "grade": "A",
+        "probes": 15,
+        "allowed": [],
+        "findings": []
+      },
+      "full": {
+        "score": 100,
+        "grade": "A",
+        "probes": 45,
+        "allowed": [],
+        "findings": []
+      }
+    },
+    "ben": {
+      "readOnly": {
+        "score": 100,
+        "grade": "A",
+        "probes": 15,
+        "allowed": [],
+        "findings": []
+      },
+      "full": {
+        "score": 100,
+        "grade": "A",
+        "probes": 45,
+        "allowed": [],
+        "findings": []
+      }
+    },
+    "cho": {
+      "readOnly": {
+        "score": 100,
+        "grade": "A",
+        "probes": 15,
+        "allowed": [],
+        "findings": []
+      },
+      "full": {
+        "score": 100,
+        "grade": "A",
+        "probes": 45,
+        "allowed": [],
+        "findings": []
+      }
+    }
+  }
+}

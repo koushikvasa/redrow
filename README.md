@@ -57,6 +57,7 @@ Red Row's write attacks show who could corrupt data; Sodabase detects corruption
 **We tested our own premise:** we asked Claude Sonnet 5.5 for 5 Supabase schemas with no security hints, and attacked each as 3 users. [Red Row proved no cross-user leak in any of them](experiments/ai-rls/RESULTS.md).
 Raw scores still ran from 100/A to 0/F, because Red Row proves who can reach which rows, not whether that sharing was intended, so a person has to review them.
 That's 5 samples from one model, so it doesn't show AI-written RLS is safe, and it's why you'd test yours rather than assume.
+We then gave it 5 real permission errors to fix. [It refused the unsafe shortcut each time](experiments/ai-rls/RESULTS.md#experiment-2-what-happens-when-ai-fixes-a-permission-error), and every attack we tried on the result was denied.
 
 **The problem:** in [an audit of 200 vibe-coded apps](https://arxiv.org/abs/2606.23130), 91% had at least one vulnerability, and 65.77% of the vulnerabilities were Critical or High, concentrated in broken access control, injection and authentication failures. [More below](#why-this-exists).
 

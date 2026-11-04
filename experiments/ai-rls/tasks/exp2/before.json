@@ -1,0 +1,99 @@
+{
+  "attempt": {
+    "step": "feature",
+    "ok": false,
+    "code": "42501",
+    "error": "new row violates row-level security policy for table \"team_members\""
+  },
+  "attacks": [
+    {
+      "step": "read team B tasks before joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "join team B uninvited",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"team_members\""
+    },
+    {
+      "step": "read team B tasks after joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "join team C as owner",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"team_members\""
+    },
+    {
+      "step": "read team C tasks after joining",
+      "ok": true,
+      "rows": 0
+    }
+  ],
+  "scans": {
+    "ana": {
+      "readOnly": {
+        "score": 99,
+        "grade": "A",
+        "probes": 12,
+        "allowed": [],
+        "findings": [
+          "RR009:low:teams"
+        ]
+      },
+      "full": {
+        "score": 99,
+        "grade": "A",
+        "probes": 36,
+        "allowed": [],
+        "findings": [
+          "RR009:low:teams"
+        ]
+      }
+    },
+    "ben": {
+      "readOnly": {
+        "score": 99,
+        "grade": "A",
+        "probes": 12,
+        "allowed": [],
+        "findings": [
+          "RR009:low:teams"
+        ]
+      },
+      "full": {
+        "score": 99,
+        "grade": "A",
+        "probes": 36,
+        "allowed": [],
+        "findings": [
+          "RR009:low:teams"
+        ]
+      }
+    },
+    "cho": {
+      "readOnly": {
+        "score": 99,
+        "grade": "A",
+        "probes": 12,
+        "allowed": [],
+        "findings": [
+          "RR009:low:teams"
+        ]
+      },
+      "full": {
+        "score": 99,
+        "grade": "A",
+        "probes": 36,
+        "allowed": [],
+        "findings": [
+          "RR009:low:teams"
+        ]
+      }
+    }
+  }
+}

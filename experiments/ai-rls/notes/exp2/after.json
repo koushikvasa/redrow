@@ -1,0 +1,154 @@
+{
+  "applied": true,
+  "applyError": null,
+  "feature": [
+    {
+      "step": "share her note with Ben, a friend",
+      "ok": true,
+      "rows": 1
+    },
+    {
+      "step": "read other users' notes after sharing",
+      "ok": true,
+      "rows": 0
+    }
+  ],
+  "attacks": [
+    {
+      "step": "read other users' notes",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "write a note into Ben's account",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"notes\""
+    },
+    {
+      "step": "read other users' notes afterwards",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "change Ben's notes",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "delete Ben's notes",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "share a note with Cho, not a friend",
+      "ok": false,
+      "code": "42501",
+      "error": "Recipient is not your friend"
+    },
+    {
+      "step": "share Ben's note, not her own",
+      "ok": false,
+      "code": "P0002",
+      "error": "Note not found"
+    },
+    {
+      "step": "declare herself already friends with Cho",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"friendships\""
+    },
+    {
+      "step": "forge a request from Cho",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"friendships\""
+    },
+    {
+      "step": "send Cho a request",
+      "ok": true,
+      "rows": 1
+    },
+    {
+      "step": "accept her own request to Cho",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "share with Cho after trying to accept",
+      "ok": false,
+      "code": "42501",
+      "error": "Recipient is not your friend"
+    }
+  ],
+  "scans": {
+    "ana": {
+      "readOnly": {
+        "score": 96,
+        "grade": "A",
+        "probes": 18,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-"
+        ]
+      },
+      "full": {
+        "score": 96,
+        "grade": "A",
+        "probes": 54,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-"
+        ]
+      }
+    },
+    "ben": {
+      "readOnly": {
+        "score": 71,
+        "grade": "D",
+        "probes": 18,
+        "allowed": [
+          "friendships:user_a:select_others:1"
+        ],
+        "findings": [
+          "RR102:critical:friendships",
+          "RR007:medium:-"
+        ]
+      },
+      "full": {
+        "score": 46,
+        "grade": "D",
+        "probes": 54,
+        "allowed": [
+          "friendships:user_a:select_others:1",
+          "friendships:user_a:delete_other:1"
+        ],
+        "findings": [
+          "RR102:critical:friendships",
+          "RR104:critical:friendships",
+          "RR007:medium:-"
+        ]
+      }
+    },
+    "cho": {
+      "readOnly": {
+        "score": 96,
+        "grade": "A",
+        "probes": 18,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-"
+        ]
+      },
+      "full": {
+        "score": 96,
+        "grade": "A",
+        "probes": 54,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-"
+        ]
+      }
+    }
+  }
+}

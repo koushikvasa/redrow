@@ -1,0 +1,142 @@
+{
+  "applied": true,
+  "applyError": null,
+  "feature": [
+    {
+      "step": "accept her own invite",
+      "ok": true,
+      "rows": 1
+    },
+    {
+      "step": "read team B tasks after accepting",
+      "ok": true,
+      "rows": 2
+    }
+  ],
+  "attacks": [
+    {
+      "step": "read team B tasks before joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "join team B uninvited",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"team_members\""
+    },
+    {
+      "step": "read team B tasks after joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "join team C as owner",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"team_members\""
+    },
+    {
+      "step": "read team C tasks after joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "read the invite tokens",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "accept an invite addressed to Cho, a leaked link",
+      "ok": false,
+      "code": "P0001",
+      "error": "invalid or expired invite"
+    },
+    {
+      "step": "accept a made-up token",
+      "ok": false,
+      "code": "P0001",
+      "error": "invalid or expired invite"
+    },
+    {
+      "step": "invite herself to team C",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"team_invites\""
+    }
+  ],
+  "scans": {
+    "ana": {
+      "readOnly": {
+        "score": 94,
+        "grade": "A",
+        "probes": 15,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-",
+          "RR009:low:team_invites",
+          "RR009:low:teams"
+        ]
+      },
+      "full": {
+        "score": 94,
+        "grade": "A",
+        "probes": 45,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-",
+          "RR009:low:team_invites",
+          "RR009:low:teams"
+        ]
+      }
+    },
+    "ben": {
+      "readOnly": {
+        "score": 94,
+        "grade": "A",
+        "probes": 15,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-",
+          "RR009:low:team_invites",
+          "RR009:low:teams"
+        ]
+      },
+      "full": {
+        "score": 94,
+        "grade": "A",
+        "probes": 45,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-",
+          "RR009:low:team_invites",
+          "RR009:low:teams"
+        ]
+      }
+    },
+    "cho": {
+      "readOnly": {
+        "score": 94,
+        "grade": "A",
+        "probes": 15,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-",
+          "RR009:low:team_invites",
+          "RR009:low:teams"
+        ]
+      },
+      "full": {
+        "score": 94,
+        "grade": "A",
+        "probes": 45,
+        "allowed": [],
+        "findings": [
+          "RR007:medium:-",
+          "RR009:low:team_invites",
+          "RR009:low:teams"
+        ]
+      }
+    }
+  }
+}

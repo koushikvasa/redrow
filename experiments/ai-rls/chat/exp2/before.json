@@ -1,0 +1,193 @@
+{
+  "attempt": {
+    "step": "feature",
+    "ok": false,
+    "code": "42501",
+    "error": "new row violates row-level security policy for table \"conversation_members\""
+  },
+  "attacks": [
+    {
+      "step": "read the group messages before joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "join the group uninvited",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"conversation_members\""
+    },
+    {
+      "step": "read the group messages after joining",
+      "ok": true,
+      "rows": 0
+    },
+    {
+      "step": "join Ben and Cho's private DM",
+      "ok": false,
+      "code": "42501",
+      "error": "new row violates row-level security policy for table \"conversation_members\""
+    },
+    {
+      "step": "read their DM after joining",
+      "ok": true,
+      "rows": 0
+    }
+  ],
+  "scans": {
+    "ana": {
+      "readOnly": {
+        "score": 0,
+        "grade": "F",
+        "probes": 12,
+        "allowed": [
+          "conversation_members:user_a:select_others:1",
+          "messages:user_a:select_others:1",
+          "profiles:user_a:select_others:2"
+        ],
+        "findings": [
+          "RR102:critical:conversation_members",
+          "RR102:critical:messages",
+          "RR102:critical:profiles",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR009:low:messages"
+        ]
+      },
+      "full": {
+        "score": 0,
+        "grade": "F",
+        "probes": 36,
+        "allowed": [
+          "conversation_members:user_a:select_others:1",
+          "messages:user_a:select_others:1",
+          "profiles:user_a:select_others:2"
+        ],
+        "findings": [
+          "RR102:critical:conversation_members",
+          "RR102:critical:messages",
+          "RR102:critical:profiles",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR009:low:messages"
+        ]
+      }
+    },
+    "ben": {
+      "readOnly": {
+        "score": 0,
+        "grade": "F",
+        "probes": 12,
+        "allowed": [
+          "conversation_members:user_a:select_others:3",
+          "conversations:user_a:select_others:2",
+          "messages:user_a:select_others:3",
+          "profiles:user_a:select_others:2"
+        ],
+        "findings": [
+          "RR102:critical:conversation_members",
+          "RR102:critical:conversations",
+          "RR102:critical:messages",
+          "RR102:critical:profiles",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR009:low:messages"
+        ]
+      },
+      "full": {
+        "score": 0,
+        "grade": "F",
+        "probes": 36,
+        "allowed": [
+          "conversation_members:user_a:select_others:3",
+          "conversations:user_a:select_others:2",
+          "messages:user_a:select_others:3",
+          "profiles:user_a:select_others:2"
+        ],
+        "findings": [
+          "RR102:critical:conversation_members",
+          "RR102:critical:conversations",
+          "RR102:critical:messages",
+          "RR102:critical:profiles",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR009:low:messages"
+        ]
+      }
+    },
+    "cho": {
+      "readOnly": {
+        "score": 0,
+        "grade": "F",
+        "probes": 12,
+        "allowed": [
+          "conversation_members:user_a:select_others:2",
+          "conversations:user_a:select_others:1",
+          "messages:user_a:select_others:2",
+          "profiles:user_a:select_others:2"
+        ],
+        "findings": [
+          "RR102:critical:conversation_members",
+          "RR102:critical:conversations",
+          "RR102:critical:messages",
+          "RR102:critical:profiles",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR009:low:messages"
+        ]
+      },
+      "full": {
+        "score": 0,
+        "grade": "F",
+        "probes": 36,
+        "allowed": [
+          "conversation_members:user_a:select_others:2",
+          "conversation_members:user_a:delete_other:1",
+          "conversations:user_a:select_others:1",
+          "messages:user_a:select_others:2",
+          "profiles:user_a:select_others:2"
+        ],
+        "findings": [
+          "RR102:critical:conversation_members",
+          "RR102:critical:conversations",
+          "RR102:critical:messages",
+          "RR102:critical:profiles",
+          "RR104:critical:conversation_members",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR007:medium:-",
+          "RR009:low:messages"
+        ]
+      }
+    }
+  }
+}
