@@ -28,7 +28,8 @@ export default function RootLayout({ children }: { readonly children: ReactNode 
         <div className="mx-auto max-w-[1780px] px-4 py-4 sm:px-10 sm:py-5 lg:px-14">
           <header className="masthead flex items-center justify-between gap-4 pb-3">
             <Link href="/" className="font-display text-2xl leading-none tracking-[0.06em] sm:text-3xl">
-              RED<span className="text-dim">ROW</span>
+              <span className="text-leak">RED</span>
+              <span className="text-ink">ROW</span>
             </Link>
             <div className="flex items-center gap-4 sm:gap-6">
               <a href="https://github.com/koushikvasa/redrow" className="text-sm text-dim underline-offset-4 hover:text-ink hover:underline">

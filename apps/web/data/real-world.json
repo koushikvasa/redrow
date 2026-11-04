@@ -1,0 +1,60 @@
+{
+  "runDate": "Nov 4, 2026",
+  "apps": [
+    {
+      "file": "App_a.html",
+      "name": "App A",
+      "purpose": "Group expenses, judging by its tables",
+      "score": 93,
+      "grade": "A",
+      "critical": 0,
+      "tables": 7,
+      "probes": 59,
+      "access": [],
+      "summary": "No stranger or cross-user access found, but there were no other users' rows to try updates and deletes on.",
+      "assessment": "needs review",
+      "reason": "Nothing got through, but with no other users' rows in the database, this scan can't show that users are kept apart.",
+      "aiTool": "not recorded",
+      "prompt": "not recorded"
+    },
+    {
+      "file": "App_C.html",
+      "name": "App C",
+      "purpose": "Tutor bookings, judging by its tables",
+      "score": 58,
+      "grade": "D",
+      "critical": 0,
+      "tables": 3,
+      "probes": 19,
+      "access": [
+        { "actor": "signed-in user", "table": "bookings", "action": "read", "rows": 1 },
+        { "actor": "signed-in user", "table": "time_slots", "action": "read", "rows": 3 }
+      ],
+      "summary": "A signed-in user read 1 booking and 3 time slots they don't own.",
+      "assessment": "intended sharing",
+      "reason": "A policy lets tutors see bookings for their own slots, and a booking app needs slots to be browsable.",
+      "aiTool": "not recorded",
+      "prompt": "not recorded"
+    },
+    {
+      "file": "App_d.html",
+      "name": "App D",
+      "purpose": "A journal with sharing, judging by its tables",
+      "score": 28,
+      "grade": "F",
+      "critical": 2,
+      "tables": 3,
+      "probes": 23,
+      "access": [
+        { "actor": "signed-in user", "table": "journal_entries", "action": "read", "rows": 1 },
+        { "actor": "signed-in user", "table": "entry_shares", "action": "read", "rows": 1 },
+        { "actor": "signed-in user", "table": "profiles", "action": "read", "rows": 2 }
+      ],
+      "summary": "A signed-in user read 1 journal entry, 1 share and 2 profiles they don't own.",
+      "assessment": "needs review",
+      "reason": "The entry fits a policy for shared entries, and there's 1 share to match it. But a policy named anyone_lookup_by_email lets a user read other profiles, so check what those hold.",
+      "aiTool": "not recorded",
+      "prompt": "not recorded"
+    }
+  ]
+}

@@ -48,6 +48,7 @@ Red Row's write attacks show who could corrupt data; Sodabase detects corruption
 ### Execution
 
 - **Live:** https://redrow.vercel.app is public, needs no login, and updates itself when a sweep lands.
+- **Real-world runs:** Published to npm tonight ([npmjs.com/package/redrow](https://www.npmjs.com/package/redrow)). Teammates built apps with AI tools and ran `npx redrow scan` on them: see the live board and [docs/real-world/](docs/real-world/README.md). 3 apps scanned; 0 with likely leaks, by our judgment of intent.
 - **End to end on real Supabase:** `scan` 0/F → `fix --apply -y` → 100/A. The exact steps are in [`docs/DEMO.md`](docs/DEMO.md). "See it fixed" shows [a stored real scan](apps/web/data/fixed-reference.json) of this database with [the reference fix](demo-target/supabase/fixed.sql) applied: 100/A, 45 attacks.
 - **Tests:** 994 pass: engine 512, CLI 399, HQ 15, web 68. That run includes the real-database tests, which skip when `REDROW_TEST_DB_URL` isn't set.
 - **Rollback safety:** [`rollback.test.ts`](packages/engine/test/rollback.test.ts) makes a probe really write, then checks that nothing persisted, including after a probe throws or the server rejects a statement. It also checks that a full scan changes nothing and that read-only mode sends no write.

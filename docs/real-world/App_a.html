@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red Row: 93/100 A, postgres</title>
+<style>
+:root {
+  --ink: #e8e6df; --dim: #8b8d91; --faint: #4a4d54; --line: #24272d; --panel: #111317; --bg: #0a0b0d;
+  --leak: #ff3b30; --ok: #4ade80; --amber: #f5b53d; --info: #5ac8e8;
+  --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); color-scheme: dark; }
+body {
+  margin: 0; padding: 40px 56px 32px; color: var(--ink); font: 18px/1.5 var(--mono);
+  background:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px) 0 0 / 100% 40px,
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px) 0 0 / 40px 100%,
+    var(--bg);
+  min-height: 100vh;
+}
+.band-bad { --band: var(--leak); } .band-mid { --band: var(--amber); } .band-good { --band: var(--ok); }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 32px;
+  border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.brand { font-weight: 700; letter-spacing: .32em; font-size: 20px; }
+.brand b { color: var(--leak); font-weight: 700; }
+.target { color: var(--dim); font-size: 16px; text-align: right; overflow-wrap: anywhere; }
+.hero { display: grid; grid-template-columns: 380px 1fr; gap: 56px; align-items: center; padding: 26px 0 24px; }
+.dial { position: relative; width: 380px; height: 380px; }
+.dial svg { width: 100%; height: 100%; display: block; }
+.tick { stroke: var(--faint); stroke-width: 3; stroke-linecap: round; opacity: .5; }
+.tick.lit { stroke: var(--band); opacity: 1; filter: drop-shadow(0 0 3px var(--band));
+  animation: light .35s both; animation-delay: calc(var(--i) * 11ms); }
+@keyframes light { from { stroke: var(--faint); opacity: .5; filter: none; } }
+.readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.score-value { font-size: 124px; line-height: 1; font-weight: 700; color: var(--band); font-variant-numeric: tabular-nums; }
+.score-max { color: var(--dim); font-size: 18px; letter-spacing: .2em; margin-top: 4px; }
+.grade { margin-top: 10px; font-size: 26px; font-weight: 700; border: 2px solid var(--band); color: var(--band);
+  padding: 0 14px; letter-spacing: .08em; }
+.verdict { font-size: 58px; line-height: 1.06; font-weight: 700; margin: 0 0 26px; letter-spacing: -.01em; }
+.verdict em { font-style: normal; color: var(--band); }
+.counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.count { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--faint); padding: 14px 18px; }
+.count b { display: block; font-size: 56px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.count span { color: var(--dim); text-transform: uppercase; letter-spacing: .14em; font-size: 15px; }
+.count.critical.on { border-top-color: var(--leak); } .count.critical.on b { color: var(--leak); }
+.count.high.on { border-top-color: #ff7a59; } .count.high.on b { color: #ff7a59; }
+.count.medium.on { border-top-color: var(--amber); } .count.medium.on b { color: var(--amber); }
+.count.low.on { border-top-color: var(--dim); }
+.count:not(.on) b { color: var(--faint); }
+.meta { margin: 16px 0 0; color: var(--dim); font-size: 16px; }
+.notice { margin: 10px 0 0; color: var(--amber); font-size: 16px; }
+h2 { font-size: 16px; letter-spacing: .3em; text-transform: uppercase; color: var(--dim); font-weight: 600;
+  margin: 28px 0 14px; display: flex; justify-content: space-between; gap: 24px; align-items: baseline; }
+.legend { letter-spacing: 0; text-transform: none; font-weight: 400; display: flex; gap: 20px; flex-wrap: wrap; font-size: 15px; }
+.legend i { display: inline-block; width: 12px; height: 12px; margin-right: 7px; vertical-align: -1px; }
+.key-leak { background: var(--leak); } .key-denied { background: rgba(74,222,128,.28); }
+.key-own { background: var(--ok); } .key-open { background: rgba(90,200,232,.3); }
+.key-na { background: #1b1d22; border: 1px solid var(--line); } .key-declared { background: var(--info); }
+.matrix-wrap { overflow-x: auto; overflow-y: hidden; }
+table.matrix { border-collapse: separate; border-spacing: 3px; width: 100%; table-layout: fixed; min-width: 1100px; }
+.matrix th { font-weight: 500; color: var(--dim); font-size: 15px; padding: 4px 6px; text-align: center; }
+.matrix th.group { color: var(--ink); letter-spacing: .14em; font-size: 14px; text-transform: uppercase;
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.matrix th.corner { width: 340px; }
+.matrix th.row { text-align: left; color: var(--ink); font-size: 18px; overflow-wrap: anywhere; font-weight: 500; }
+.cell { height: 52px; text-align: center; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+  animation: cell .4s both; animation-delay: calc(var(--n) * 14ms + 500ms); }
+@keyframes cell { from { opacity: 0; transform: translateY(4px); } }
+.cell.leak { color: #fff; background: rgba(255,59,48,calc(.32 + .68 * var(--heat))); box-shadow: inset 0 0 0 1px rgba(255,59,48,.8); }
+.cell.denied { color: rgba(74,222,128,.7); background: rgba(74,222,128,.09); font-weight: 400; }
+.cell.own { color: var(--ok); background: rgba(74,222,128,.16); }
+.cell.declared { color: #06222b; background: var(--info); }
+.cell.open { color: var(--info); background: rgba(90,200,232,.12); }
+.cell.na { color: var(--faint); background: #15171b; font-weight: 400; }
+.group-title { font-size: 22px; font-weight: 700; margin: 30px 0 10px; display: flex; gap: 14px; align-items: baseline; }
+.group-title small { color: var(--dim); font-weight: 400; font-size: 16px; }
+.sev-critical .group-title { color: var(--leak); } .sev-high .group-title { color: #ff7a59; }
+.sev-medium .group-title { color: var(--amber); } .sev-low .group-title { color: var(--dim); }
+.sev-info .group-title { color: var(--info); }
+.finding { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--faint); padding: 14px 20px; margin-bottom: 8px; }
+.sev-critical .finding { border-left-color: var(--leak); } .sev-high .finding { border-left-color: #ff7a59; }
+.sev-medium .finding { border-left-color: var(--amber); } .sev-info .finding { border-left-color: var(--info); }
+.finding-head { display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; }
+.rule { font-weight: 700; } .where { color: var(--ink); overflow-wrap: anywhere; }
+.proof { margin-left: auto; color: var(--dim); font-size: 15px; overflow-wrap: anywhere; }
+.impact { margin: 8px 0 10px; color: #c9c8c2; overflow-wrap: anywhere; }
+.policy { color: var(--dim); font-size: 15px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.fix { display: flex; gap: 12px; align-items: flex-start; }
+.fix code { flex: 1; display: block; background: #07080a; border: 1px solid var(--line); padding: 8px 12px; color: #a9d5b5;
+  font: 15px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy { background: none; border: 1px solid var(--faint); color: var(--dim); font: 14px var(--mono); padding: 8px 12px; cursor: pointer; }
+.copy:hover, .copy:focus-visible { color: var(--ink); border-color: var(--ink); }
+.none { color: var(--ok); font-size: 22px; padding: 18px 0; }
+footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 24px;
+  flex-wrap: wrap; color: var(--dim); font-size: 15px; }
+footer strong { color: var(--ink); font-weight: 600; }
+@media (max-width: 1100px) {
+  body { padding: 24px 20px; }
+  .hero { grid-template-columns: 1fr; justify-items: center; }
+  .verdict { font-size: 40px; text-align: center; }
+  .counts { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .tick.lit, .cell { animation: none; } }
+</style></head>
+<body class="band-good">
+<header><div class="brand">RED<b>ROW</b></div><div class="target">aws-1-us-west-2.pooler.supabase.com/postgres (public)<br>2026-11-04T23:12:20.752Z</div></header>
+<div class="hero"><div class="dial" role="img" aria-label="Score 93 out of 100, grade A">
+<svg viewBox="0 0 380 380" aria-hidden="true"><line class="tick lit" style="--i:0" x1="190" y1="14" x2="190" y2="44" transform="rotate(-135.00 190 190)"></line><line class="tick lit" style="--i:1" x1="190" y1="14" x2="190" y2="36" transform="rotate(-132.27 190 190)"></line><line class="tick lit" style="--i:2" x1="190" y1="14" x2="190" y2="36" transform="rotate(-129.55 190 190)"></line><line class="tick lit" style="--i:3" x1="190" y1="14" x2="190" y2="36" transform="rotate(-126.82 190 190)"></line><line class="tick lit" style="--i:4" x1="190" y1="14" x2="190" y2="36" transform="rotate(-124.09 190 190)"></line><line class="tick lit" style="--i:5" x1="190" y1="14" x2="190" y2="36" transform="rotate(-121.36 190 190)"></line><line class="tick lit" style="--i:6" x1="190" y1="14" x2="190" y2="36" transform="rotate(-118.64 190 190)"></line><line class="tick lit" style="--i:7" x1="190" y1="14" x2="190" y2="36" transform="rotate(-115.91 190 190)"></line><line class="tick lit" style="--i:8" x1="190" y1="14" x2="190" y2="36" transform="rotate(-113.18 190 190)"></line><line class="tick lit" style="--i:9" x1="190" y1="14" x2="190" y2="36" transform="rotate(-110.45 190 190)"></line><line class="tick lit" style="--i:10" x1="190" y1="14" x2="190" y2="44" transform="rotate(-107.73 190 190)"></line><line class="tick lit" style="--i:11" x1="190" y1="14" x2="190" y2="36" transform="rotate(-105.00 190 190)"></line><line class="tick lit" style="--i:12" x1="190" y1="14" x2="190" y2="36" transform="rotate(-102.27 190 190)"></line><line class="tick lit" style="--i:13" x1="190" y1="14" x2="190" y2="36" transform="rotate(-99.55 190 190)"></line><line class="tick lit" style="--i:14" x1="190" y1="14" x2="190" y2="36" transform="rotate(-96.82 190 190)"></line><line class="tick lit" style="--i:15" x1="190" y1="14" x2="190" y2="36" transform="rotate(-94.09 190 190)"></line><line class="tick lit" style="--i:16" x1="190" y1="14" x2="190" y2="36" transform="rotate(-91.36 190 190)"></line><line class="tick lit" style="--i:17" x1="190" y1="14" x2="190" y2="36" transform="rotate(-88.64 190 190)"></line><line class="tick lit" style="--i:18" x1="190" y1="14" x2="190" y2="36" transform="rotate(-85.91 190 190)"></line><line class="tick lit" style="--i:19" x1="190" y1="14" x2="190" y2="36" transform="rotate(-83.18 190 190)"></line><line class="tick lit" style="--i:20" x1="190" y1="14" x2="190" y2="44" transform="rotate(-80.45 190 190)"></line><line class="tick lit" style="--i:21" x1="190" y1="14" x2="190" y2="36" transform="rotate(-77.73 190 190)"></line><line class="tick lit" style="--i:22" x1="190" y1="14" x2="190" y2="36" transform="rotate(-75.00 190 190)"></line><line class="tick lit" style="--i:23" x1="190" y1="14" x2="190" y2="36" transform="rotate(-72.27 190 190)"></line><line class="tick lit" style="--i:24" x1="190" y1="14" x2="190" y2="36" transform="rotate(-69.55 190 190)"></line><line class="tick lit" style="--i:25" x1="190" y1="14" x2="190" y2="36" transform="rotate(-66.82 190 190)"></line><line class="tick lit" style="--i:26" x1="190" y1="14" x2="190" y2="36" transform="rotate(-64.09 190 190)"></line><line class="tick lit" style="--i:27" x1="190" y1="14" x2="190" y2="36" transform="rotate(-61.36 190 190)"></line><line class="tick lit" style="--i:28" x1="190" y1="14" x2="190" y2="36" transform="rotate(-58.64 190 190)"></line><line class="tick lit" style="--i:29" x1="190" y1="14" x2="190" y2="36" transform="rotate(-55.91 190 190)"></line><line class="tick lit" style="--i:30" x1="190" y1="14" x2="190" y2="44" transform="rotate(-53.18 190 190)"></line><line class="tick lit" style="--i:31" x1="190" y1="14" x2="190" y2="36" transform="rotate(-50.45 190 190)"></line><line class="tick lit" style="--i:32" x1="190" y1="14" x2="190" y2="36" transform="rotate(-47.73 190 190)"></line><line class="tick lit" style="--i:33" x1="190" y1="14" x2="190" y2="36" transform="rotate(-45.00 190 190)"></line><line class="tick lit" style="--i:34" x1="190" y1="14" x2="190" y2="36" transform="rotate(-42.27 190 190)"></line><line class="tick lit" style="--i:35" x1="190" y1="14" x2="190" y2="36" transform="rotate(-39.55 190 190)"></line><line class="tick lit" style="--i:36" x1="190" y1="14" x2="190" y2="36" transform="rotate(-36.82 190 190)"></line><line class="tick lit" style="--i:37" x1="190" y1="14" x2="190" y2="36" transform="rotate(-34.09 190 190)"></line><line class="tick lit" style="--i:38" x1="190" y1="14" x2="190" y2="36" transform="rotate(-31.36 190 190)"></line><line class="tick lit" style="--i:39" x1="190" y1="14" x2="190" y2="36" transform="rotate(-28.64 190 190)"></line><line class="tick lit" style="--i:40" x1="190" y1="14" x2="190" y2="44" transform="rotate(-25.91 190 190)"></line><line class="tick lit" style="--i:41" x1="190" y1="14" x2="190" y2="36" transform="rotate(-23.18 190 190)"></line><line class="tick lit" style="--i:42" x1="190" y1="14" x2="190" y2="36" transform="rotate(-20.45 190 190)"></line><line class="tick lit" style="--i:43" x1="190" y1="14" x2="190" y2="36" transform="rotate(-17.73 190 190)"></line><line class="tick lit" style="--i:44" x1="190" y1="14" x2="190" y2="36" transform="rotate(-15.00 190 190)"></line><line class="tick lit" style="--i:45" x1="190" y1="14" x2="190" y2="36" transform="rotate(-12.27 190 190)"></line><line class="tick lit" style="--i:46" x1="190" y1="14" x2="190" y2="36" transform="rotate(-9.55 190 190)"></line><line class="tick lit" style="--i:47" x1="190" y1="14" x2="190" y2="36" transform="rotate(-6.82 190 190)"></line><line class="tick lit" style="--i:48" x1="190" y1="14" x2="190" y2="36" transform="rotate(-4.09 190 190)"></line><line class="tick lit" style="--i:49" x1="190" y1="14" x2="190" y2="36" transform="rotate(-1.36 190 190)"></line><line class="tick lit" style="--i:50" x1="190" y1="14" x2="190" y2="44" transform="rotate(1.36 190 190)"></line><line class="tick lit" style="--i:51" x1="190" y1="14" x2="190" y2="36" transform="rotate(4.09 190 190)"></line><line class="tick lit" style="--i:52" x1="190" y1="14" x2="190" y2="36" transform="rotate(6.82 190 190)"></line><line class="tick lit" style="--i:53" x1="190" y1="14" x2="190" y2="36" transform="rotate(9.55 190 190)"></line><line class="tick lit" style="--i:54" x1="190" y1="14" x2="190" y2="36" transform="rotate(12.27 190 190)"></line><line class="tick lit" style="--i:55" x1="190" y1="14" x2="190" y2="36" transform="rotate(15.00 190 190)"></line><line class="tick lit" style="--i:56" x1="190" y1="14" x2="190" y2="36" transform="rotate(17.73 190 190)"></line><line class="tick lit" style="--i:57" x1="190" y1="14" x2="190" y2="36" transform="rotate(20.45 190 190)"></line><line class="tick lit" style="--i:58" x1="190" y1="14" x2="190" y2="36" transform="rotate(23.18 190 190)"></line><line class="tick lit" style="--i:59" x1="190" y1="14" x2="190" y2="36" transform="rotate(25.91 190 190)"></line><line class="tick lit" style="--i:60" x1="190" y1="14" x2="190" y2="44" transform="rotate(28.64 190 190)"></line><line class="tick lit" style="--i:61" x1="190" y1="14" x2="190" y2="36" transform="rotate(31.36 190 190)"></line><line class="tick lit" style="--i:62" x1="190" y1="14" x2="190" y2="36" transform="rotate(34.09 190 190)"></line><line class="tick lit" style="--i:63" x1="190" y1="14" x2="190" y2="36" transform="rotate(36.82 190 190)"></line><line class="tick lit" style="--i:64" x1="190" y1="14" x2="190" y2="36" transform="rotate(39.55 190 190)"></line><line class="tick lit" style="--i:65" x1="190" y1="14" x2="190" y2="36" transform="rotate(42.27 190 190)"></line><line class="tick lit" style="--i:66" x1="190" y1="14" x2="190" y2="36" transform="rotate(45.00 190 190)"></line><line class="tick lit" style="--i:67" x1="190" y1="14" x2="190" y2="36" transform="rotate(47.73 190 190)"></line><line class="tick lit" style="--i:68" x1="190" y1="14" x2="190" y2="36" transform="rotate(50.45 190 190)"></line><line class="tick lit" style="--i:69" x1="190" y1="14" x2="190" y2="36" transform="rotate(53.18 190 190)"></line><line class="tick lit" style="--i:70" x1="190" y1="14" x2="190" y2="44" transform="rotate(55.91 190 190)"></line><line class="tick lit" style="--i:71" x1="190" y1="14" x2="190" y2="36" transform="rotate(58.64 190 190)"></line><line class="tick lit" style="--i:72" x1="190" y1="14" x2="190" y2="36" transform="rotate(61.36 190 190)"></line><line class="tick lit" style="--i:73" x1="190" y1="14" x2="190" y2="36" transform="rotate(64.09 190 190)"></line><line class="tick lit" style="--i:74" x1="190" y1="14" x2="190" y2="36" transform="rotate(66.82 190 190)"></line><line class="tick lit" style="--i:75" x1="190" y1="14" x2="190" y2="36" transform="rotate(69.55 190 190)"></line><line class="tick lit" style="--i:76" x1="190" y1="14" x2="190" y2="36" transform="rotate(72.27 190 190)"></line><line class="tick lit" style="--i:77" x1="190" y1="14" x2="190" y2="36" transform="rotate(75.00 190 190)"></line><line class="tick lit" style="--i:78" x1="190" y1="14" x2="190" y2="36" transform="rotate(77.73 190 190)"></line><line class="tick lit" style="--i:79" x1="190" y1="14" x2="190" y2="36" transform="rotate(80.45 190 190)"></line><line class="tick lit" style="--i:80" x1="190" y1="14" x2="190" y2="44" transform="rotate(83.18 190 190)"></line><line class="tick lit" style="--i:81" x1="190" y1="14" x2="190" y2="36" transform="rotate(85.91 190 190)"></line><line class="tick lit" style="--i:82" x1="190" y1="14" x2="190" y2="36" transform="rotate(88.64 190 190)"></line><line class="tick lit" style="--i:83" x1="190" y1="14" x2="190" y2="36" transform="rotate(91.36 190 190)"></line><line class="tick lit" style="--i:84" x1="190" y1="14" x2="190" y2="36" transform="rotate(94.09 190 190)"></line><line class="tick lit" style="--i:85" x1="190" y1="14" x2="190" y2="36" transform="rotate(96.82 190 190)"></line><line class="tick lit" style="--i:86" x1="190" y1="14" x2="190" y2="36" transform="rotate(99.55 190 190)"></line><line class="tick lit" style="--i:87" x1="190" y1="14" x2="190" y2="36" transform="rotate(102.27 190 190)"></line><line class="tick lit" style="--i:88" x1="190" y1="14" x2="190" y2="36" transform="rotate(105.00 190 190)"></line><line class="tick lit" style="--i:89" x1="190" y1="14" x2="190" y2="36" transform="rotate(107.73 190 190)"></line><line class="tick lit" style="--i:90" x1="190" y1="14" x2="190" y2="44" transform="rotate(110.45 190 190)"></line><line class="tick lit" style="--i:91" x1="190" y1="14" x2="190" y2="36" transform="rotate(113.18 190 190)"></line><line class="tick lit" style="--i:92" x1="190" y1="14" x2="190" y2="36" transform="rotate(115.91 190 190)"></line><line class="tick" style="--i:93" x1="190" y1="14" x2="190" y2="36" transform="rotate(118.64 190 190)"></line><line class="tick" style="--i:94" x1="190" y1="14" x2="190" y2="36" transform="rotate(121.36 190 190)"></line><line class="tick" style="--i:95" x1="190" y1="14" x2="190" y2="36" transform="rotate(124.09 190 190)"></line><line class="tick" style="--i:96" x1="190" y1="14" x2="190" y2="36" transform="rotate(126.82 190 190)"></line><line class="tick" style="--i:97" x1="190" y1="14" x2="190" y2="36" transform="rotate(129.55 190 190)"></line><line class="tick" style="--i:98" x1="190" y1="14" x2="190" y2="36" transform="rotate(132.27 190 190)"></line><line class="tick" style="--i:99" x1="190" y1="14" x2="190" y2="36" transform="rotate(135.00 190 190)"></line></svg>
+<div class="readout"><div class="score-value" data-score="93">93</div><div class="score-max">/ 100</div><div class="grade">A</div></div>
+</div>
+<div><h1 class="verdict"><em>4 findings</em> to fix.</h1><div class="counts"><div class="count critical"><b>0</b><span>Critical</span></div><div class="count high"><b>0</b><span>High</span></div><div class="count medium on"><b>1</b><span>Medium</span></div><div class="count low on"><b>3</b><span>Low</span></div></div>
+<p class="meta">7 tables, 59 probes, 15.3s</p></div></div>
+<h2><span>Leak matrix</span><span class="legend">
+<span><i class="key-leak"></i>leak, with rows</span><span><i class="key-own"></i>own rows, expected</span><span><i class="key-denied"></i>denied</span>
+<span><i class="key-na"></i>n/a or inconclusive</span></span></h2>
+<div class="matrix-wrap"><table class="matrix"><thead>
+<tr><th class="corner"></th><th class="group" colspan="4" scope="colgroup">Anon</th><th class="group" colspan="1" scope="colgroup">User A, own</th><th class="group" colspan="4" scope="colgroup">User A → other users</th></tr>
+<tr><th></th><th scope="col">read</th><th scope="col">insert</th><th scope="col">update</th><th scope="col">delete</th><th scope="col">read</th><th scope="col">read</th><th scope="col">insert</th><th scope="col">update</th><th scope="col">delete</th></tr>
+</thead><tbody><tr><th class="row" scope="row">public.expense_splits</th><td class="cell denied" style="--heat:0.000;--n:1">✕</td><td class="cell denied" style="--heat:0.000;--n:2">✕</td><td class="cell denied" style="--heat:0.000;--n:3">✕</td><td class="cell denied" style="--heat:0.000;--n:4">✕</td><td class="cell denied" style="--heat:0.000;--n:5">✕</td><td class="cell denied" style="--heat:0.000;--n:6">✕</td><td class="cell denied" style="--heat:0.000;--n:7">✕</td><td class="cell na" style="--heat:0.000;--n:8">·</td><td class="cell na" style="--heat:0.000;--n:9">·</td></tr><tr><th class="row" scope="row">public.expenses</th><td class="cell denied" style="--heat:0.000;--n:10">✕</td><td class="cell denied" style="--heat:0.000;--n:11">✕</td><td class="cell denied" style="--heat:0.000;--n:12">✕</td><td class="cell denied" style="--heat:0.000;--n:13">✕</td><td class="cell denied" style="--heat:0.000;--n:14">✕</td><td class="cell denied" style="--heat:0.000;--n:15">✕</td><td class="cell denied" style="--heat:0.000;--n:16">✕</td><td class="cell na" style="--heat:0.000;--n:17">·</td><td class="cell na" style="--heat:0.000;--n:18">·</td></tr><tr><th class="row" scope="row">public.group_invites</th><td class="cell denied" style="--heat:0.000;--n:19">✕</td><td class="cell denied" style="--heat:0.000;--n:20">✕</td><td class="cell denied" style="--heat:0.000;--n:21">✕</td><td class="cell denied" style="--heat:0.000;--n:22">✕</td><td class="cell na" style="--heat:0.000;--n:23">·</td><td class="cell denied" style="--heat:0.000;--n:24">✕</td><td class="cell na" style="--heat:0.000;--n:25">·</td><td class="cell na" style="--heat:0.000;--n:26">·</td><td class="cell na" style="--heat:0.000;--n:27">·</td></tr><tr><th class="row" scope="row">public.group_members</th><td class="cell denied" style="--heat:0.000;--n:28">✕</td><td class="cell denied" style="--heat:0.000;--n:29">✕</td><td class="cell denied" style="--heat:0.000;--n:30">✕</td><td class="cell denied" style="--heat:0.000;--n:31">✕</td><td class="cell denied" style="--heat:0.000;--n:32">✕</td><td class="cell denied" style="--heat:0.000;--n:33">✕</td><td class="cell denied" style="--heat:0.000;--n:34">✕</td><td class="cell na" style="--heat:0.000;--n:35">·</td><td class="cell na" style="--heat:0.000;--n:36">·</td></tr><tr><th class="row" scope="row">public.groups</th><td class="cell denied" style="--heat:0.000;--n:37">✕</td><td class="cell denied" style="--heat:0.000;--n:38">✕</td><td class="cell denied" style="--heat:0.000;--n:39">✕</td><td class="cell denied" style="--heat:0.000;--n:40">✕</td><td class="cell denied" style="--heat:0.000;--n:41">✕</td><td class="cell denied" style="--heat:0.000;--n:42">✕</td><td class="cell denied" style="--heat:0.000;--n:43">✕</td><td class="cell na" style="--heat:0.000;--n:44">·</td><td class="cell na" style="--heat:0.000;--n:45">·</td></tr><tr><th class="row" scope="row">public.profiles</th><td class="cell denied" style="--heat:0.000;--n:46">✕</td><td class="cell denied" style="--heat:0.000;--n:47">✕</td><td class="cell denied" style="--heat:0.000;--n:48">✕</td><td class="cell denied" style="--heat:0.000;--n:49">✕</td><td class="cell denied" style="--heat:0.000;--n:50">✕</td><td class="cell denied" style="--heat:0.000;--n:51">✕</td><td class="cell denied" style="--heat:0.000;--n:52">✕</td><td class="cell na" style="--heat:0.000;--n:53">·</td><td class="cell na" style="--heat:0.000;--n:54">·</td></tr><tr><th class="row" scope="row">public.settlements</th><td class="cell denied" style="--heat:0.000;--n:55">✕</td><td class="cell denied" style="--heat:0.000;--n:56">✕</td><td class="cell denied" style="--heat:0.000;--n:57">✕</td><td class="cell denied" style="--heat:0.000;--n:58">✕</td><td class="cell denied" style="--heat:0.000;--n:59">✕</td><td class="cell denied" style="--heat:0.000;--n:60">✕</td><td class="cell denied" style="--heat:0.000;--n:61">✕</td><td class="cell na" style="--heat:0.000;--n:62">·</td><td class="cell na" style="--heat:0.000;--n:63">·</td></tr></tbody></table></div>
+<h2><span>Findings</span></h2>
+<section class="sev-medium"><div class="group-title">Medium <small>1</small></div><article class="finding">
+<div class="finding-head"><span class="rule">RR007</span><span class="where">public</span><span class="proof">found in the catalog</span></div>
+<p class="impact">public.accept_group_invite(p_invite_id uuid) runs with its owner&#39;s rights, skipping RLS, and authenticated can call it through the API.</p>
+
+<div class="fix"><code>revoke execute on function &quot;public&quot;.&quot;accept_group_invite&quot;(p_invite_id uuid) from public, anon, authenticated; -- then grant it only to the roles that need it, or make it security invoker</code><button type="button" class="copy">Copy</button></div>
+</article></section><section class="sev-low"><div class="group-title">Low <small>3</small></div><article class="finding">
+<div class="finding-head"><span class="rule">RR009</span><span class="where">public.expenses</span><span class="proof">found in the catalog</span></div>
+<p class="impact">public.expenses.created_by is used in a policy but no index leads with it, so each query scans the table.</p>
+
+<div class="fix"><code>create index on &quot;public&quot;.&quot;expenses&quot; (&quot;created_by&quot;);</code><button type="button" class="copy">Copy</button></div>
+</article><article class="finding">
+<div class="finding-head"><span class="rule">RR009</span><span class="where">public.groups</span><span class="proof">found in the catalog</span></div>
+<p class="impact">public.groups.created_by is used in a policy but no index leads with it, so each query scans the table.</p>
+
+<div class="fix"><code>create index on &quot;public&quot;.&quot;groups&quot; (&quot;created_by&quot;);</code><button type="button" class="copy">Copy</button></div>
+</article><article class="finding">
+<div class="finding-head"><span class="rule">RR009</span><span class="where">public.settlements</span><span class="proof">found in the catalog</span></div>
+<p class="impact">public.settlements.created_by is used in a policy but no index leads with it, so each query scans the table.</p>
+
+<div class="fix"><code>create index on &quot;public&quot;.&quot;settlements&quot; (&quot;created_by&quot;);</code><button type="button" class="copy">Copy</button></div>
+</article></section>
+<footer><span><strong>Every attack is rolled back, and we only ever record counts.</strong></span><span>Red Row</span></footer>
+<script>
+(function () {
+  var value = document.querySelector('.score-value');
+  var target = Number(value.getAttribute('data-score'));
+  var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!calm && target > 0) {
+    var start = performance.now();
+    var duration = target * 11 + 350;
+    var step = function (now) {
+      var done = Math.min(1, (now - start) / duration);
+      value.textContent = String(Math.round(target * done));
+      if (done < 1) requestAnimationFrame(step);
+    };
+    value.textContent = '0';
+    requestAnimationFrame(step);
+  }
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest('.copy');
+    if (!button) return;
+    var code = button.parentElement.querySelector('code');
+    navigator.clipboard.writeText(code.textContent).then(function () {
+      button.textContent = 'Copied';
+      setTimeout(function () { button.textContent = 'Copy'; }, 1500);
+    });
+  });
+})();
+</script>
+</body></html>

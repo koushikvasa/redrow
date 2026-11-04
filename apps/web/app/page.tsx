@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { CopyButton } from '@/components/copy-button'
 import { LiveRefresh, ScannedAgo } from '@/components/live'
+import { RealWorldSection } from '@/components/real-world-section'
 import { ScoreDial } from '@/components/score-dial'
 import { SeverityCounts } from '@/components/severity-counts'
 import { TrustRow } from '@/components/trust-row'
@@ -101,6 +102,7 @@ export default async function BoardPage() {
           <ProjectCard key={card.project.id} card={card} />
         ))}
       </div>
+      <RealWorldSection />
     </main>
   )
 }
